@@ -13,14 +13,16 @@ const THEMES: Record<ThemeKey, any> = {
     border: "#e5e7eb",
     text: "#0f172a",
     subtext: "#475569",
-    accent: "#1d4ed8",   // links (blue)
+    accent: "#1d4ed8", // links (blue)
     link1: "#9ca3af",
     base: "#111827",
     userPoint: "#059669", // green point
     axis: "#e5e7eb",
     warn: "#b91c1c",
-    localX: "#f59e0b",    // amber for local x'
-    localY: "#10b981",    // emerald for local y'
+    localX: "#f59e0b", // FK local x′
+    localY: "#10b981", // FK local y′
+    userLocalX: "#ef4444", // user's x~ from 2x2 (dashed)
+    userLocalY: "#06b6d4", // user's y~ from 2x2 (dashed)
   },
   dark: {
     bg: "#0b1020",
@@ -36,6 +38,8 @@ const THEMES: Record<ThemeKey, any> = {
     warn: "#f87171",
     localX: "#fbbf24",
     localY: "#34d399",
+    userLocalX: "#f87171",
+    userLocalY: "#22d3ee",
   },
   contrast: {
     bg: "#ffffff",
@@ -51,6 +55,8 @@ const THEMES: Record<ThemeKey, any> = {
     warn: "#cc0000",
     localX: "#ff7f00",
     localY: "#007f00",
+    userLocalX: "#ff0000",
+    userLocalY: "#0080ff",
   },
 };
 
@@ -214,6 +220,34 @@ export default function App() {
 
   const err = endUser ? Math.hypot(endUser.x - endFK.x, endUser.y - endFK.y) : null;
 
+  // ---- user rotation diagnostics (from top-left 2x2) ----
+    const rotDiag = useMemo(() => {
+      if (!Tuser) return null;
+
+      // User 2x2 rotation-ish block
+      const r11 = Tuser[0][0], r12 = Tuser[0][1];
+      const r21 = Tuser[1][0], r22 = Tuser[1][1];
+
+      // columns represent where the basis e_x and e_y go
+      const ex = { x: r11, y: r21 }; // first column
+      const ey = { x: r12, y: r22 }; // second column
+
+      const n1 = Math.hypot(ex.x, ex.y);
+      const n2 = Math.hypot(ey.x, ey.y);
+      const dot = ex.x * ey.x + ex.y * ey.y;
+      const det = r11 * r22 - r12 * r21;
+
+      // FK axis angle (global): sum of joint angles
+      const totalAngle = anglesDeg.slice(0, numArms).reduce((a, b) => a + toRad(b), 0);
+      const userAngle = Math.atan2(ex.y, ex.x); // angle of user "x~"
+      let delta = (userAngle - totalAngle) * 180 / Math.PI;
+      // normalize to [-180, 180]
+      if (delta > 180) delta -= 360;
+      if (delta < -180) delta += 360;
+
+      return { ex, ey, n1, n2, dot, det, deltaDeg: delta, totalAngle };
+    }, [Tuser, anglesDeg, numArms]);
+
   // ---- canvas (pan/zoom) ----
   const CANVAS_H = 420; const VB_W = 900, VB_H = 520;
   const [scale, setScale] = useState(1);
@@ -376,6 +410,36 @@ export default function App() {
                 ) : "—"}
               </div>
             </Panel>
+            <Panel title="Rotation diagnostics (from top-left 2×2)" colors={C}>
+              {rotDiag ? (
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, fontSize:12 }}>
+                  {(() => {
+                    const ok = (v: boolean) => ({ color: v ? (theme==="dark" ? "#34d399" : "#059669") : C.warn });
+                    const n1ok = Math.abs(rotDiag.n1 - 1) < 0.02;
+                    const n2ok = Math.abs(rotDiag.n2 - 1) < 0.02;
+                    const dotok = Math.abs(rotDiag.dot) < 0.02;
+                    const detok = Math.abs(rotDiag.det - 1) < 0.02;
+                    const angok = Math.abs(rotDiag.deltaDeg) < 1.0;
+
+                    return (
+                      <>
+                        <div>‖r₁‖ = <b style={ok(n1ok)}>{rotDiag.n1.toFixed(3)}</b></div>
+                        <div>‖r₂‖ = <b style={ok(n2ok)}>{rotDiag.n2.toFixed(3)}</b></div>
+                        <div>r₁·r₂ = <b style={ok(dotok)}>{rotDiag.dot.toFixed(3)}</b></div>
+                        <div>det(R) = <b style={ok(detok)}>{rotDiag.det.toFixed(3)}</b></div>
+                        <div>Δθ (user x~ vs FK x′) = <b style={ok(angok)}>{rotDiag.deltaDeg.toFixed(2)}°</b></div>
+                      </>
+                    );
+                  })()}
+                </div>
+              ) : (
+                <div style={{ fontSize:12, color:C.subtext }}>Enter a valid matrix to inspect its rotation.</div>
+              )}
+              <div style={{ marginTop:6, fontSize:12, color:C.subtext }}>
+                For a proper 2D rotation: ‖r₁‖≈1, ‖r₂‖≈1, r₁·r₂≈0, det(R)≈+1.
+              </div>
+            </Panel>
+
           </div>
 
           {/* RIGHT: Canvas + static derivation */}
@@ -387,6 +451,8 @@ export default function App() {
                 <span><span style={{ color:C.link1 }}>▬</span> link1</span>
                 <span><span style={{ color:C.accent }}>▬</span> link2/3</span>
                 <span><span style={{ color:C.localX }}>—</span> x′, <span style={{ color:C.localY }}>—</span> y′ (local axes)</span>
+                <span><span style={{ color:C.userLocalX }}>- -</span> user x~</span>
+                c<span><span style={{ color:C.userLocalY }}>- -</span> user y~</span>
                 <span>Wheel: zoom · Drag: pan</span>
               </div>
 
@@ -447,6 +513,33 @@ export default function App() {
                       <line x1={p2.x} y1={p2.y} x2={yEnd.x} y2={yEnd.y} stroke={C.localY} strokeWidth={3} strokeLinecap="round" />
                       <text x={xEnd.x + 6} y={xEnd.y} fontSize={12} fill={C.localX}>x′</text>
                       <text x={yEnd.x + 6} y={yEnd.y} fontSize={12} fill={C.localY}>y′</text>
+                    </>
+                  );
+                })()}
+
+                {/* user's axes from top-left 2x2 (dashed), if available */}
+                {rotDiag && (() => {
+                  const end = joints[joints.length-1];
+                  const p2 = worldToScreen(end.x, end.y);
+
+                  // ex/ey are in world coords already (columns of the user's 2x2)
+                  const { ex, ey } = rotDiag;
+
+                  // scale so lines have fixed on-screen length
+                  const screenLen = 60;
+                  const worldLen = screenLen / Math.max(0.0001, scale);
+
+                  const uxEnd = worldToScreen(end.x + worldLen * ex.x, end.y + worldLen * ex.y);
+                  const uyEnd = worldToScreen(end.x + worldLen * ey.x, end.y + worldLen * ey.y);
+
+                  return (
+                    <>
+                      <line x1={p2.x} y1={p2.y} x2={uxEnd.x} y2={uxEnd.y}
+                            stroke={C.userLocalX} strokeWidth={3} strokeDasharray="6 6" strokeLinecap="round" />
+                      <line x1={p2.x} y1={p2.y} x2={uyEnd.x} y2={uyEnd.y}
+                            stroke={C.userLocalY} strokeWidth={3} strokeDasharray="6 6" strokeLinecap="round" />
+                      <text x={uxEnd.x + 6} y={uxEnd.y} fontSize={12} fill={C.userLocalX}>x~</text>
+                      <text x={uyEnd.x + 6} y={uyEnd.y} fontSize={12} fill={C.userLocalY}>y~</text>
                     </>
                   );
                 })()}
