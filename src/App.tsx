@@ -13,12 +13,14 @@ const THEMES: Record<ThemeKey, any> = {
     border: "#e5e7eb",
     text: "#0f172a",
     subtext: "#475569",
-    accent: "#1d4ed8",
+    accent: "#1d4ed8",   // links (blue)
     link1: "#9ca3af",
     base: "#111827",
-    userPoint: "#059669",
+    userPoint: "#059669", // green point
     axis: "#e5e7eb",
     warn: "#b91c1c",
+    localX: "#f59e0b",    // amber for local x'
+    localY: "#10b981",    // emerald for local y'
   },
   dark: {
     bg: "#0b1020",
@@ -32,6 +34,8 @@ const THEMES: Record<ThemeKey, any> = {
     userPoint: "#34d399",
     axis: "#26324f",
     warn: "#f87171",
+    localX: "#fbbf24",
+    localY: "#34d399",
   },
   contrast: {
     bg: "#ffffff",
@@ -45,6 +49,8 @@ const THEMES: Record<ThemeKey, any> = {
     userPoint: "#008000",
     axis: "#cccccc",
     warn: "#cc0000",
+    localX: "#ff7f00",
+    localY: "#007f00",
   },
 };
 
@@ -71,38 +77,25 @@ function matVec(A: number[][], v: number[]) {
 }
 function matIdentity(): number[][] { return [[1,0,0],[0,1,0],[0,0,1]]; }
 
-// ---------- DEFAULT USER MATRIX (2-link symbolic) ----------
+// ---------- DEFAULT USER MATRIX (identity) ----------
 const DEFAULT_MATRIX: string[][] = [
-  ["1", "0", "0"],
-  ["0",  "1",  "0"],
+
+
+  ["cos(θ1+θ2)", "-sin(θ1+θ2)", "l1*cos(θ1)+l2*cos(θ1+θ2)"],
+
+
+  ["sin(θ1+θ2)",  "cos(θ1+θ2)",  "l1*sin(θ1)+l2*sin(θ1+θ2)"],
+
   ["0","0","1"],
+
 ];
 
 // ---------- SIMPLE PANEL ----------
-type PanelProps = PropsWithChildren<{
-  title?: string;
-  style?: React.CSSProperties;
-  colors: any;
-}>;
-
+type PanelProps = PropsWithChildren<{ title?: string; style?: React.CSSProperties; colors: any; }>;
 function Panel({ title, style, colors, children }: PanelProps) {
   return (
-    <div
-      style={{
-        background: colors.panel,
-        border: `1px solid ${colors.border}`,
-        borderRadius: 10,
-        padding: 12,
-        boxSizing: "border-box",
-        boxShadow: "0 1px 2px rgba(16,24,40,0.04)",
-        ...style,
-      }}
-    >
-      {title && (
-        <div style={{ fontWeight: 700, marginBottom: 8, color: colors.text }}>
-          {title}
-        </div>
-      )}
+    <div style={{ background:colors.panel, border:`1px solid ${colors.border}`, borderRadius:10, padding:12, boxSizing:"border-box", boxShadow:"0 1px 2px rgba(16,24,40,0.04)", ...style }}>
+      {title && <div style={{ fontWeight:700, marginBottom:8, color:colors.text }}>{title}</div>}
       {children}
     </div>
   );
@@ -113,19 +106,9 @@ type Cell = string | number;
 const Matrix: React.FC<{ A: Cell[][]; colors:any; label?: string; compact?: boolean }> = ({ A, colors, label, compact }) => (
   <div style={{ display:"inline-flex", alignItems:"center", gap:8 }}>
     {label && <div style={{ color:colors.subtext, fontSize:12, minWidth: compact? undefined : 60, textAlign:"right" }}>{label}</div>}
-    <div style={{
-      display:"grid",
-      gridTemplateColumns:`repeat(${A[0].length}, auto)`,
-      gap:6, padding:"8px 10px",
-      border:`1px solid ${colors.border}`, borderRadius:8,
-      background: colors.panel
-    }}>
+    <div style={{ display:"grid", gridTemplateColumns:`repeat(${A[0].length}, auto)`, gap:6, padding:"8px 10px", border:`1px solid ${colors.border}`, borderRadius:8, background: colors.panel }}>
       {A.flatMap((row, i) => row.map((c, j) => (
-        <div key={`${i}-${j}`} style={{
-          minWidth: compact? 44 : 56, textAlign:"center",
-          fontFamily:"ui-monospace, Menlo, monospace",
-          color: colors.text
-        }}>
+        <div key={`${i}-${j}`} style={{ minWidth: compact? 44 : 56, textAlign:"center", fontFamily:"ui-monospace, Menlo, monospace", color: colors.text }}>
           {typeof c === "number" ? (Number.isFinite(c) ? c.toFixed(3) : "") : c}
         </div>
       )))}
@@ -158,8 +141,8 @@ export default function App() {
       try {
         const scope: Record<string, any> = {
           l1, l2, l3,
-          θ1: toRad(t1deg), θ2: toRad(t2deg), θ3: toRad(t3deg), // radians
-          θ1d: t1deg, θ2d: t2deg, θ3d: t3deg,                   // degree helpers
+          θ1: toRad(t1deg), θ2: toRad(t2deg), θ3: toRad(t3deg),
+          θ1d: t1deg, θ2d: t2deg, θ3d: t3deg,
           pi: Math.PI,
           sind: (x:any)=>Math.sin(toRad(Number(x))),
           cosd: (x:any)=>Math.cos(toRad(Number(x))),
@@ -214,9 +197,10 @@ export default function App() {
     return pts; // length = numArms+1
   }, [numArms, anglesDeg, lengths]);
 
+  // --- user result: T·[0,0,1]^T (local origin at end-effector)
   const endUserRaw = useMemo(() => {
     if (!Tuser) return null;
-    const p = matVec(Tuser,[0,0,1]);
+    const p = matVec(Tuser,[0,0,1]); // [x,y,w]
     return { x: p[0], y: p[1], w: p[2] };
   }, [Tuser]);
 
@@ -291,6 +275,7 @@ export default function App() {
                   </select>
                   <div style={{ marginLeft:8, fontSize:12, color:C.subtext }}>(angles shown in degrees)</div>
                 </div>
+
                 {/* controls per link */}
                 <div>
                   <div style={{ fontSize:12, color:C.subtext, marginBottom:4 }}>Link 1 length (l1): <b>{l1.toFixed(0)}</b></div>
@@ -372,6 +357,7 @@ export default function App() {
                   <div style={{ fontWeight:600, marginBottom:4 }}>User matrix point</div>
                   {endUser ? (
                     <>
+                      <div>p = [0, 0, 1]ᵀ (local origin at tool tip)</div>
                       <div>x = {endUser.x.toFixed(3)}</div>
                       <div>y = {endUser.y.toFixed(3)}</div>
                       {endUserRaw && <div style={{ color:C.subtext }}>w = {endUserRaw.w.toFixed(3)}</div>}
@@ -400,6 +386,7 @@ export default function App() {
                 <span><span style={{ color:C.userPoint }}>●</span> T·p</span>
                 <span><span style={{ color:C.link1 }}>▬</span> link1</span>
                 <span><span style={{ color:C.accent }}>▬</span> link2/3</span>
+                <span><span style={{ color:C.localX }}>—</span> x′, <span style={{ color:C.localY }}>—</span> y′ (local axes)</span>
                 <span>Wheel: zoom · Drag: pan</span>
               </div>
 
@@ -433,34 +420,50 @@ export default function App() {
                   );
                 })}
 
-                {/* FK end (bigger disk under) */}
+                {/* FK end + local axes */}
                 {(() => {
                   const end = joints[joints.length-1];
                   const p2 = worldToScreen(end.x, end.y);
+
+                  // draw local axes of end-effector (constant on-screen length)
+                  const totalAngle = anglesDeg.slice(0, numArms).reduce((a,b)=>a+toRad(b), 0);
+                  const ux = Math.cos(totalAngle), uy = Math.sin(totalAngle);
+                  const vx = -Math.sin(totalAngle), vy = Math.cos(totalAngle);
+                  const screenLen = 60;            // pixels
+                  const worldLen  = screenLen / Math.max(0.0001, scale);
+
+                  const xEnd = worldToScreen(end.x + worldLen*ux, end.y + worldLen*uy);
+                  const yEnd = worldToScreen(end.x + worldLen*vx, end.y + worldLen*vy);
+
                   return (
                     <>
+                      {/* halo + FK dot */}
                       <circle cx={p2.x} cy={p2.y} r={10} fill="none" stroke="#ffffff" strokeWidth={3} opacity={0.9} />
                       <circle cx={p2.x} cy={p2.y} r={7.5} fill={C.accent} stroke="#111827" strokeWidth={1.2} />
                       <text x={p2.x + 10} y={p2.y - 10} fontSize={12} fill={C.text}>FK</text>
+
+                      {/* local axes */}
+                      <line x1={p2.x} y1={p2.y} x2={xEnd.x} y2={xEnd.y} stroke={C.localX} strokeWidth={3} strokeLinecap="round" />
+                      <line x1={p2.x} y1={p2.y} x2={yEnd.x} y2={yEnd.y} stroke={C.localY} strokeWidth={3} strokeLinecap="round" />
+                      <text x={xEnd.x + 6} y={xEnd.y} fontSize={12} fill={C.localX}>x′</text>
+                      <text x={yEnd.x + 6} y={yEnd.y} fontSize={12} fill={C.localY}>y′</text>
                     </>
                   );
                 })()}
 
-                {/* user T·p (draw on top; if coincident, small disk centered → circle-in-circle) */}
+                {/* user T·p (circle-in-circle when coincident) */}
                 {endUser && (() => {
                   const end = joints[joints.length-1];
                   const pU  = worldToScreen(endUser.x, endUser.y);
                   const pFK = worldToScreen(end.x, end.y);
                   const d = Math.hypot(pU.x-pFK.x, pU.y-pFK.y);
-                  const same = d < 0.5; // treat as identical visually
-                  const px = same ? pFK.x : pU.x; const py = same ? pFK.y : pU.y;
+                  const same = d < 0.5;
+                  const sx = same ? pFK.x : pU.x; const sy = same ? pFK.y : pU.y;
                   return (
                     <>
-                      {/* halo */}
-                      <circle cx={px} cy={py} r={same?6:8} fill="none" stroke="#ffffff" strokeWidth={3} opacity={0.95} />
-                      {/* small green */}
-                      <circle cx={px} cy={py} r={same?3.8:5.5} fill={C.userPoint} stroke="#0b1320" strokeWidth={same?0.6:0} />
-                      <text x={px + 10} y={py - 10} fontSize={12} fill={theme==="dark" ? "#86efac" : "#065f46"}>T·p</text>
+                      <circle cx={sx} cy={sy} r={same?6:8} fill="none" stroke="#ffffff" strokeWidth={3} opacity={0.95} />
+                      <circle cx={sx} cy={sy} r={same?3.8:5.5} fill={C.userPoint} stroke="#0b1320" strokeWidth={same?0.6:0} />
+                      <text x={sx + 10} y={sy - 10} fontSize={12} fill={theme==="dark" ? "#86efac" : "#065f46"}>T·p</text>
                     </>
                   );
                 })()}
@@ -470,8 +473,9 @@ export default function App() {
             <Panel colors={C} title="How T is built (right→left application)">
               <div style={{ color:C.subtext, fontSize:13, marginBottom:10 }}>
                 We compose the base→end transform using local-frame steps:
-                for each link <b>i</b>, we first rotate by <b>θᵢ</b> and then translate by <b>lᵢ</b> along that link's local x.
-                For column vectors, the rightmost matrix acts first, so <b>T·p</b> applies <i>link 1 last</i>.
+                for each link <b>i</b>, rotate by <b>θᵢ</b> then translate by <b>lᵢ</b> along that link’s local x.
+                With column vectors, the rightmost matrix acts first; <b>T·[0,0,1]ᵀ</b> gives the
+                <b> local origin at the tool tip</b> (green point).
               </div>
 
               {/* SYMBOLIC CHAIN (depends on numArms) */}
@@ -493,7 +497,6 @@ export default function App() {
                 {(() => {
                   const Rs = anglesDeg.map(a => Rot2D(toRad(a)));
                   const Trs = lengths.map(l => Tran2D(l,0));
-                  // T = R1·Tr1·R2·Tr2·... in left-to-right notation
                   let T = matIdentity();
                   for (let i=0;i<numArms;i++) T = matMul(T, matMul(Rs[i], Trs[i]));
                   const p = [0,0,1];
@@ -524,12 +527,6 @@ export default function App() {
                     </>
                   );
                 })()}
-              </div>
-
-              <div style={{ color:C.subtext, fontSize:12, marginTop:8 }}>
-                Tip: Although people say "translate then rotate", with column vectors the math is <b>right→left</b>:
-                the rightmost op happens first. Our chain <b>R·Tr</b> per link means the translation is in the
-                <i>rotated (local) frame</i>, matching robot kinematics.
               </div>
             </Panel>
           </div>
