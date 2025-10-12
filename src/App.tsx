@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState, PropsWithChildren } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import type { PropsWithChildren } from "react";
 import { create, all } from "mathjs";
 
 const math = create(all, {});
