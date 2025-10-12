@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState, PropsWithChildren } from "react";
 import { create, all } from "mathjs";
 
 const math = create(all, {});
@@ -78,15 +78,34 @@ const DEFAULT_MATRIX: string[][] = [
 ];
 
 // ---------- SIMPLE PANEL ----------
-const Panel: React.FC<{title?: string; style?: React.CSSProperties; colors: any}> = ({ title, style, colors, children }) => (
-  <div style={{
-    background:colors.panel,border:`1px solid ${colors.border}`,borderRadius:10,padding:12,
-    boxSizing:"border-box",boxShadow:"0 1px 2px rgba(16,24,40,0.04)",...style
-  }}>
-    {title && <div style={{ fontWeight:700, marginBottom:8, color:colors.text }}>{title}</div>}
-    {children}
-  </div>
-);
+type PanelProps = PropsWithChildren<{
+  title?: string;
+  style?: React.CSSProperties;
+  colors: any;
+}>;
+
+function Panel({ title, style, colors, children }: PanelProps) {
+  return (
+    <div
+      style={{
+        background: colors.panel,
+        border: `1px solid ${colors.border}`,
+        borderRadius: 10,
+        padding: 12,
+        boxSizing: "border-box",
+        boxShadow: "0 1px 2px rgba(16,24,40,0.04)",
+        ...style,
+      }}
+    >
+      {title && (
+        <div style={{ fontWeight: 700, marginBottom: 8, color: colors.text }}>
+          {title}
+        </div>
+      )}
+      {children}
+    </div>
+  );
+}
 
 // ---------- SMALL MATRIX VIEW ----------
 type Cell = string | number;
