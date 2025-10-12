@@ -85,15 +85,9 @@ function matIdentity(): number[][] { return [[1,0,0],[0,1,0],[0,0,1]]; }
 
 // ---------- DEFAULT USER MATRIX (identity) ----------
 const DEFAULT_MATRIX: string[][] = [
-
-
-  ["cos(θ1+θ2)", "-sin(θ1+θ2)", "l1*cos(θ1)+l2*cos(θ1+θ2)"],
-
-
-  ["sin(θ1+θ2)",  "cos(θ1+θ2)",  "l1*sin(θ1)+l2*sin(θ1+θ2)"],
-
-  ["0","0","1"],
-
+  ["1", "0", "0"],
+  ["0", "1", "0"],
+  ["0", "0", "1"],
 ];
 
 // ---------- SIMPLE PANEL ----------
