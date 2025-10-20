@@ -96,7 +96,7 @@ export default function RTTManipulator() {
   ];
   const xyLayout = {
     xaxis: { title: { text: "x" }, range: ranges.x },
-    yaxis: { title: { text: "y" }, range: ranges.y, scaleanchor: "x", scaleratio: 1 },
+    yaxis: { title: { text: "y" }, range: ranges.y, scaleanchor: "x" as const, scaleratio: 1 },
     margin: { l: 40, r: 10, t: 10, b: 40 },
     paper_bgcolor: "#0b0e12",
     plot_bgcolor: "#0b0e12",
