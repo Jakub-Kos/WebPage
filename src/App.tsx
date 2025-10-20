@@ -33,8 +33,8 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/school" element={<School />} />
-        <Route path="/school/robotika" element={<InteractiveArm />} />
-        <Route path="/school/robotika-RTTManipulator" element={<RTTManipulator />} />
+        <Route path="/school/robotika/InteractiveArm" element={<InteractiveArm />} />
+        <Route path="/school/robotika/RTTManipulator" element={<RTTManipulator />} />
         <Route path="/cooking" element={<Cooking />} />
         <Route path="/travel" element={<Travel />} />
         <Route path="*" element={<NotFound />} />
