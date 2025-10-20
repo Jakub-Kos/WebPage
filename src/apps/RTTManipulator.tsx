@@ -79,10 +79,10 @@ export default function RTTManipulator() {
 
   const layout3D = {
     scene: {
-      xaxis: { title: "x", range: ranges.x },
-      yaxis: { title: "y", range: ranges.y },
-      zaxis: { title: "z", range: ranges.z },
-      aspectmode: "cube",
+      xaxis: { title: { text: "x" }, range: ranges.x },
+      yaxis: { title: { text: "y" }, range: ranges.y },
+      zaxis: { title: { text: "z" }, range: ranges.z },
+      aspectmode: "cube" as const,
     },
     margin: { l: 0, r: 0, t: 10, b: 0 },
     paper_bgcolor: "#0b0e12",
@@ -95,8 +95,8 @@ export default function RTTManipulator() {
     { type: "scatter", mode: "markers", x: [x[i]], y: [y[i]], marker: { size: 8 } } as any,
   ];
   const xyLayout = {
-    xaxis: { title: "x", range: ranges.x },
-    yaxis: { title: "y", range: ranges.y, scaleanchor: "x", scaleratio: 1 },
+    xaxis: { title: { text: "x" }, range: ranges.x },
+    yaxis: { title: { text: "y" }, range: ranges.y, scaleanchor: "x", scaleratio: 1 },
     margin: { l: 40, r: 10, t: 10, b: 40 },
     paper_bgcolor: "#0b0e12",
     plot_bgcolor: "#0b0e12",
@@ -108,13 +108,14 @@ export default function RTTManipulator() {
     { type: "scatter", mode: "markers", x: [x[i]], y: [z[i]], marker: { size: 8 } } as any,
   ];
   const xzLayout = {
-    xaxis: { title: "x", range: ranges.x },
-    yaxis: { title: "z", range: ranges.z },
+    xaxis: { title: { text: "x" }, range: ranges.x },
+    yaxis: { title: { text: "z" }, range: ranges.z },
     margin: { l: 40, r: 10, t: 10, b: 40 },
     paper_bgcolor: "#0b0e12",
     plot_bgcolor: "#0b0e12",
     showlegend: false,
   };
+
 
   // CSV (client-side)
   const csvHref = useMemo(() => {
