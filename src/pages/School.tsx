@@ -12,6 +12,8 @@ export default function School() {
           <strong>Úvod do robotiky – NAIL028</strong>
           <br />
           <Link to="/school/robotika">→ Interactive 2D RR Manipulator App</Link>
+          <br />
+          <Link to="/school/robotika-RTTManipulator">→ RTT Manipulator – 3D & Side Views</Link>
         </li>
       </ul>
     </div>

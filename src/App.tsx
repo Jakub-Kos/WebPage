@@ -5,6 +5,7 @@ import Cooking from "./pages/Cooking";
 import Travel from "./pages/Travel";
 import NotFound from "./pages/NotFound";
 import InteractiveArm from "./apps/InteractiveArm";
+import RTTManipulator from "./apps/RTTManipulator";
 
 export default function App() {
   return (
@@ -33,6 +34,7 @@ export default function App() {
         <Route path="/" element={<Home />} />
         <Route path="/school" element={<School />} />
         <Route path="/school/robotika" element={<InteractiveArm />} />
+        <Route path="/school/robotika-RTTManipulator" element={<RTTManipulator />} />
         <Route path="/cooking" element={<Cooking />} />
         <Route path="/travel" element={<Travel />} />
         <Route path="*" element={<NotFound />} />
