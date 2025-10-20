@@ -230,8 +230,10 @@ export default function RTTManipulator() {
     { type: "scatter", mode: "markers", x: [x[i]], y: [z[i]], marker: { size: 8 } } as any,
   ];
   const xyLayout = {
-    xaxis: { title: { text: "x" }, range: ranges.x, constrain: "domain" },
-    yaxis: { title: { text: "y" }, range: ranges.y, scaleanchor: "x" as const, scaleratio: 1, constrain: "domain" },
+    xaxis: { title: { text: "x" }, range: ranges.x, constrain: "domain" as const },
+    yaxis: { title: { text: "y" }, range: ranges.y, scaleanchor: "x" as const, scaleratio: 1, constrain: "domain" as const },
+    autosize: true,
+    height: undefined,
     margin: { l: 40, r: 10, t: 10, b: 40 },
     paper_bgcolor: C.panel,
     plot_bgcolor: C.panel,
