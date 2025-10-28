@@ -4,8 +4,10 @@ import School from "./pages/School";
 import Cooking from "./pages/Cooking";
 import Travel from "./pages/Travel";
 import NotFound from "./pages/NotFound";
+import Personal from "./pages/Personal"
 import InteractiveArm from "./apps/InteractiveArm";
 import RTTManipulator from "./apps/RTTManipulator";
+import WordlePattern from "./apps/WordlePattern";
 
 export default function App() {
   return (
@@ -25,6 +27,7 @@ export default function App() {
         <div style={{ display: "flex", gap: 18 }}>
           <Link style={{ color: "inherit", textDecoration: "none" }} to="/">Home</Link>
           <Link style={{ color: "inherit", textDecoration: "none" }} to="/school">School</Link>
+          <Link style={{ color: "inherit", textDecoration: "none" }} to="/personal">Personal</Link>
           <Link style={{ color: "inherit", textDecoration: "none" }} to="/cooking">Cooking</Link>
           <Link style={{ color: "inherit", textDecoration: "none" }} to="/travel">Travel</Link>
         </div>
@@ -35,6 +38,8 @@ export default function App() {
         <Route path="/school" element={<School />} />
         <Route path="/school/robotika/InteractiveArm" element={<InteractiveArm />} />
         <Route path="/school/robotika/RTTManipulator" element={<RTTManipulator />} />
+        <Route path="/personal" element={<Personal />} />
+        <Route path="/personal/projects/WordlePattern" element={<WordlePattern />} />
         <Route path="/cooking" element={<Cooking />} />
         <Route path="/travel" element={<Travel />} />
         <Route path="*" element={<NotFound />} />
