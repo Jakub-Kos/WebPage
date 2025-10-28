@@ -237,16 +237,30 @@ function useWordlist() {
 
 // --- 2. Re-usable UI Components (Styled with plain Tailwind) ---
 
-const Button: React.FC<any> = ({ children, className, variant = "default", size = "default", ...props }) => {
+type ButtonVariant = 'default' | 'secondary' | 'outline';
+type ButtonSize = 'default' | 'sm';
+
+const BUTTON_VARIANTS = {
+  default: "bg-green-600 text-white hover:bg-green-700",
+  secondary: "bg-neutral-700 text-neutral-100 hover:bg-neutral-600",
+  outline: "border border-neutral-700 bg-transparent hover:bg-neutral-800",
+} as const;
+
+const BUTTON_SIZES = {
+  default: "h-10 px-4 py-2",
+  sm: "h-9 px-3",
+} as const;
+
+interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: ButtonVariant;
+  size?: ButtonSize;
+  className?: string;
+}
+
+const Button: React.FC<ButtonProps> = ({ children, className, variant = "default", size = "default", ...props }) => {
   const base = "inline-flex items-center justify-center rounded-md text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-500 disabled:pointer-events-none disabled:opacity-50";
-  const variants = {
-    default: "bg-green-600 text-white hover:bg-green-700",
-    secondary: "bg-neutral-700 text-neutral-100 hover:bg-neutral-600",
-    outline: "border border-neutral-700 bg-transparent hover:bg-neutral-800",
-  };
-  const sizes = { default: "h-10 px-4 py-2", sm: "h-9 px-3" };
   return (
-    <button className={classNames(base, variants[variant], sizes[size], className)} {...props}>
+    <button className={classNames(base, BUTTON_VARIANTS[variant], BUTTON_SIZES[size], className)} {...props}>
       {children}
     </button>
   );
@@ -263,17 +277,28 @@ const Input: React.FC<any> = ({ className, ...props }) => (
   />
 );
 
-const Badge: React.FC<any> = ({ children, className, variant = "secondary" }) => {
-  const variants = {
-    secondary: "border-transparent bg-neutral-700 text-neutral-200",
-    destructive: "border-transparent bg-red-800 text-red-100",
-    info: "border-transparent bg-green-800 text-green-100",
-  };
+type BadgeVariant = 'secondary' | 'destructive' | 'info';
+const BADGE_VARIANTS = {
+  secondary: "border-transparent bg-neutral-700 text-neutral-200",
+  destructive: "border-transparent bg-red-800 text-red-100",
+  info: "border-transparent bg-green-800 text-green-100",
+} as const;
+
+interface BadgeProps extends React.HTMLAttributes<HTMLDivElement> {
+  variant?: BadgeVariant;
+  className?: string;
+}
+
+const Badge: React.FC<BadgeProps> = ({ children, className, variant = "secondary", ...props }) => {
   return (
-    <div className={classNames(
-      "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold",
-      variants[variant], className
-    )}>
+    <div
+      className={classNames(
+        "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold",
+        BADGE_VARIANTS[variant],
+        className
+      )}
+      {...props}
+    >
       {children}
     </div>
   );
