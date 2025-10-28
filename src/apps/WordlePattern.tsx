@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState, useCallback } from "react"
 import {
   Eraser, Upload, Loader2, PaintBucket, Check, AlertCircle, Minus, RefreshCw,
   Check as CheckIcon,
-  CircleDot
+  CircleDot, Sun, Moon
 } from "lucide-react";
 
 // ---------- Fallback list (Used ONLY if fetch fails) ----------
@@ -147,8 +147,17 @@ zebra`;
 
 type ColorKey = 0 | 1 | 2 | 3; // 0: empty, 1: gray, 2: yellow, 3: green
 
-const COLORS = {
+type ThemeMode = 'dark' | 'light';
+
+const COLORS_DARK = {
   0: { name: "empty",  bg: "bg-neutral-900", border: "border-neutral-700", text: "text-neutral-500", symbol: null },
+  1: { name: "gray",   bg: "bg-[#787c7e]",  border: "border-[#787c7e]",   text: "text-white", symbol: null },
+  2: { name: "yellow", bg: "bg-[#c9b458]",  border: "border-[#c9b458]",   text: "text-black", symbol: <CircleDot className="size-6" /> },
+  3: { name: "green",  bg: "bg-[#6aaa64]",  border: "border-[#6aaa64]",   text: "text-white", symbol: <CheckIcon className="size-6" /> },
+} as const;
+
+const COLORS_LIGHT = {
+  0: { name: "empty",  bg: "bg-white", border: "border-neutral-300", text: "text-neutral-400", symbol: null },
   1: { name: "gray",   bg: "bg-[#787c7e]",  border: "border-[#787c7e]",   text: "text-white", symbol: null },
   2: { name: "yellow", bg: "bg-[#c9b458]",  border: "border-[#c9b458]",   text: "text-black", symbol: <CircleDot className="size-6" /> },
   3: { name: "green",  bg: "bg-[#6aaa64]",  border: "border-[#6aaa64]",   text: "text-white", symbol: <CheckIcon className="size-6" /> },
@@ -158,6 +167,7 @@ const COLORS = {
 function normalizeWord(w: string) { return (w || "").toLowerCase().replace(/[^a-z]/g, ""); }
 function isFiveLetter(w: string) { return /^[a-z]{5}$/.test(w); }
 function classNames(...xs: Array<string | false | null | undefined>) { return xs.filter(Boolean).join(" "); }
+function tn(theme: ThemeMode, dark: string, light: string) { return theme === 'dark' ? dark : light; }
 
 function scoreWordle(guess: string, solution: string): number[] {
   guess = normalizeWord(guess); solution = normalizeWord(solution);
@@ -240,11 +250,11 @@ function useWordlist() {
 type ButtonVariant = 'default' | 'secondary' | 'outline';
 type ButtonSize = 'default' | 'sm';
 
-const BUTTON_VARIANTS = {
+const buttonVariantClasses = (theme: ThemeMode) => ({
   default: "bg-green-600 text-white hover:bg-green-700",
-  secondary: "bg-neutral-700 text-neutral-100 hover:bg-neutral-600",
-  outline: "border border-neutral-700 bg-transparent hover:bg-neutral-800",
-} as const;
+  secondary: tn(theme, "bg-neutral-700 text-neutral-100 hover:bg-neutral-600", "bg-neutral-200 text-neutral-900 hover:bg-neutral-300"),
+  outline: tn(theme, "border border-neutral-700 bg-transparent hover:bg-neutral-800", "border border-neutral-300 bg-transparent hover:bg-neutral-100"),
+} as const);
 
 const BUTTON_SIZES = {
   default: "h-10 px-4 py-2",
@@ -252,25 +262,32 @@ const BUTTON_SIZES = {
 } as const;
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  theme: ThemeMode;
   variant?: ButtonVariant;
   size?: ButtonSize;
   className?: string;
 }
 
-const Button: React.FC<ButtonProps> = ({ children, className, variant = "default", size = "default", ...props }) => {
-  const base = "inline-flex items-center justify-center rounded-md text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-500 disabled:pointer-events-none disabled:opacity-50";
+const Button: React.FC<ButtonProps> = ({ children, className, theme, variant = "default", size = "default", ...props }) => {
+  const base = "inline-flex items-center justify-center rounded-md text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 disabled:pointer-events-none disabled:opacity-50";
+  const variants = buttonVariantClasses(theme);
   return (
-    <button className={classNames(base, BUTTON_VARIANTS[variant], BUTTON_SIZES[size], className)} {...props}>
+    <button className={classNames(base, variants[variant], BUTTON_SIZES[size], className)} {...props}>
       {children}
     </button>
   );
 };
 
-const Input: React.FC<any> = ({ className, ...props }) => (
+interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+  theme: ThemeMode;
+  className?: string;
+}
+
+const Input: React.FC<InputProps> = ({ className, theme, ...props }) => (
   <input
     className={classNames(
-      "flex h-10 w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm text-neutral-100",
-      "placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-neutral-600",
+      tn(theme, "flex h-10 w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm text-neutral-100", "flex h-10 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900"),
+      tn(theme, "placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-neutral-600", "placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-neutral-300"),
       className
     )}
     {...props}
@@ -278,23 +295,25 @@ const Input: React.FC<any> = ({ className, ...props }) => (
 );
 
 type BadgeVariant = 'secondary' | 'destructive' | 'info';
-const BADGE_VARIANTS = {
-  secondary: "border-transparent bg-neutral-700 text-neutral-200",
-  destructive: "border-transparent bg-red-800 text-red-100",
-  info: "border-transparent bg-green-800 text-green-100",
-} as const;
+const badgeVariantClasses = (theme: ThemeMode) => ({
+  secondary: tn(theme, "border-transparent bg-neutral-700 text-neutral-200", "border-transparent bg-neutral-200 text-neutral-800"),
+  destructive: tn(theme, "border-transparent bg-red-800 text-red-100", "border-transparent bg-red-100 text-red-800"),
+  info: tn(theme, "border-transparent bg-green-800 text-green-100", "border-transparent bg-green-100 text-green-800"),
+} as const);
 
 interface BadgeProps extends React.HTMLAttributes<HTMLDivElement> {
+  theme: ThemeMode;
   variant?: BadgeVariant;
   className?: string;
 }
 
-const Badge: React.FC<BadgeProps> = ({ children, className, variant = "secondary", ...props }) => {
+const Badge: React.FC<BadgeProps> = ({ children, className, theme, variant = "secondary", ...props }) => {
+  const variants = badgeVariantClasses(theme);
   return (
     <div
       className={classNames(
         "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold",
-        BADGE_VARIANTS[variant],
+        variants[variant],
         className
       )}
       {...props}
@@ -307,8 +326,8 @@ const Badge: React.FC<BadgeProps> = ({ children, className, variant = "secondary
 // --- 3. App-Specific Components ---
 
 function GridEditor({
-  grid, setGrid, activeColor
-}: { grid: number[][]; setGrid: React.Dispatch<React.SetStateAction<number[][]>>; activeColor: ColorKey }) {
+  grid, setGrid, activeColor, colors
+}: { grid: number[][]; setGrid: React.Dispatch<React.SetStateAction<number[][]>>; activeColor: ColorKey; colors: typeof COLORS_DARK }) {
   const rows = grid.length, cols = grid[0].length;
   const dragging = useRef(false);
 
@@ -335,7 +354,7 @@ function GridEditor({
         <div key={r} className="flex gap-2">
           {Array.from({ length: cols }).map((__, c) => {
             const v = grid[r][c] as ColorKey;
-            const col = COLORS[v];
+            const col = colors[v];
             return (
               <div
                 key={`${r}-${c}`}
@@ -360,8 +379,8 @@ function GridEditor({
   );
 }
 
-function ColorSwatch({ value, selected, onClick }: { value: ColorKey; selected: boolean; onClick: () => void }) {
-  const c = COLORS[value];
+function ColorSwatch({ value, selected, onClick, colors, theme }: { value: ColorKey; selected: boolean; onClick: () => void; colors: typeof COLORS_DARK; theme: ThemeMode }) {
+  const c = colors[value];
   return (
     <button
       onClick={onClick}
@@ -369,7 +388,7 @@ function ColorSwatch({ value, selected, onClick }: { value: ColorKey; selected: 
         "rounded-lg px-3 py-2 text-sm font-semibold border-2 flex items-center gap-2",
         "transition-all",
         c.bg, c.border, c.text,
-        selected ? "ring-2 ring-neutral-100 shadow-md scale-105" : "opacity-70 hover:opacity-100"
+        selected ? tn(theme, "ring-2 ring-neutral-100 shadow-md scale-105", "ring-2 ring-neutral-300 shadow-md scale-105") : "opacity-70 hover:opacity-100"
       )}
       title={c.name}
     >
@@ -382,6 +401,13 @@ function ColorSwatch({ value, selected, onClick }: { value: ColorKey; selected: 
 // --- 4. Main App Component (as a self-contained page) ---
 
 export default function WordlePattern() {
+  const [theme, setTheme] = useState<ThemeMode>(() => {
+    const saved = typeof window !== 'undefined' ? (localStorage.getItem('wordle-theme') as ThemeMode | null) : null;
+    return saved === 'light' || saved === 'dark' ? saved : 'dark';
+  });
+  useEffect(() => { try { localStorage.setItem('wordle-theme', theme); } catch {} }, [theme]);
+  const colors = theme === 'dark' ? COLORS_DARK : COLORS_LIGHT;
+
   const [solution, setSolution] = useState("");
   const [grid, setGrid] = useState(Array.from({ length: 6 }, () => Array.from({ length: 5 }, () => 0)));
   const [activeColor, setActiveColor] = useState<ColorKey>(3);
@@ -459,18 +485,21 @@ export default function WordlePattern() {
 
   // This component provides its own page structure
   return (
-    <div className="min-h-screen w-full bg-neutral-950 text-neutral-100">
+    <div className={classNames("min-h-screen w-full", tn(theme, "bg-neutral-950 text-neutral-100", "bg-neutral-50 text-neutral-900"))}>
       <div className="mx-auto max-w-7xl p-4 md:p-6 space-y-6">
 
         {/* Header (Top Bar) */}
-        <header className="flex items-center justify-between py-4 border-b border-neutral-800">
+        <header className={classNames("flex items-center justify-between py-4 border-b", tn(theme, "border-neutral-800", "border-neutral-200"))}>
           <h1 className="text-3xl font-extrabold tracking-tight">Wordle Pattern Reverse-Engineer</h1>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={loadDemoPattern}>
+          <div className="flex gap-2 items-center">
+            <Button theme={theme} variant="outline" size="sm" onClick={loadDemoPattern}>
               Demo Pattern
             </Button>
-            <Button variant="secondary" size="sm" onClick={resetAll}>
+            <Button theme={theme} variant="secondary" size="sm" onClick={resetAll}>
               <Eraser className="mr-2 size-4" /> Reset All
+            </Button>
+            <Button theme={theme} variant="outline" size="sm" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} title={theme === 'dark' ? 'Switch to Light' : 'Switch to Dark'}>
+              {theme === 'dark' ? <Sun className="size-4" /> : <Moon className="size-4" />}
             </Button>
           </div>
         </header>
@@ -479,13 +508,14 @@ export default function WordlePattern() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
 
           {/* Left Column (Controls) */}
-          <div className="p-5 rounded-lg border border-neutral-800 bg-neutral-900/70 space-y-6">
+          <div className={classNames("p-5 rounded-lg border space-y-6", tn(theme, "border-neutral-800 bg-neutral-900/70", "border-neutral-200 bg-white/80"))}>
             <h2 className="text-xl font-semibold">Controls</h2>
 
             {/* Solution Input */}
             <div className="space-y-2">
               <label htmlFor="solution-input" className="text-sm font-semibold">Today’s word (solution)</label>
               <Input
+                theme={theme}
                 id="solution-input"
                 value={solution}
                 onChange={(e: any) => setSolution(normalizeWord(e.target.value))}
@@ -494,7 +524,7 @@ export default function WordlePattern() {
                 className="font-mono tracking-widest uppercase"
               />
               {!solution ? (
-                <p className="text-sm text-neutral-400">Enter the hidden Wordle answer.</p>
+                <p className={classNames("text-sm", tn(theme, "text-neutral-400", "text-neutral-600"))}>Enter the hidden Wordle answer.</p>
               ) : solutionValid ? (
                 <p className="text-sm text-green-400 flex items-center"><Check className="mr-1 size-4" /> Looks good</p>
               ) : (
@@ -512,35 +542,47 @@ export default function WordlePattern() {
                     value={v as ColorKey}
                     selected={activeColor === v}
                     onClick={() => setActiveColor(v as ColorKey)}
+                    colors={colors}
+                    theme={theme}
                   />
                 ))}
               </div>
-              <p className="text-sm text-neutral-400 flex items-center"><PaintBucket className="mr-1 size-4" /> Click or drag on the grid to paint squares.</p>
+              <p className={classNames("text-sm flex items-center", tn(theme, "text-neutral-400", "text-neutral-600"))}><PaintBucket className="mr-1 size-4" /> Click or drag on the grid to paint squares.</p>
             </div>
 
             {/* Word List (Tabs) */}
             <div className="space-y-2">
               <label className="text-sm font-semibold">Word List</label>
-              <div className="flex rounded-md bg-neutral-800 p-1">
+              <div className={classNames("flex rounded-md p-1", tn(theme, "bg-neutral-800", "bg-neutral-200"))}>
                 <button
                   onClick={() => setActiveTab('built-in')}
-                  className={classNames("w-1/2 rounded p-2 text-sm font-semibold", activeTab === 'built-in' ? 'bg-neutral-600' : 'hover:bg-neutral-700/50')}
+                  className={classNames(
+                    "w-1/2 rounded p-2 text-sm font-semibold transition-colors",
+                    activeTab === 'built-in'
+                      ? tn(theme, 'bg-neutral-600 text-white', 'bg-white text-neutral-900 shadow')
+                      : tn(theme, 'hover:bg-neutral-700/50', 'hover:bg-white/60')
+                  )}
                 >
                   Built-in Demo
                 </button>
                 <button
                   onClick={() => setActiveTab('upload')}
-                  className={classNames("w-1/2 rounded p-2 text-sm font-semibold flex items-center justify-center", activeTab === 'upload' ? 'bg-neutral-600' : 'hover:bg-neutral-700/50')}
+                  className={classNames(
+                    "w-1/2 rounded p-2 text-sm font-semibold flex items-center justify-center transition-colors",
+                    activeTab === 'upload'
+                      ? tn(theme, 'bg-neutral-600 text-white', 'bg-white text-neutral-900 shadow')
+                      : tn(theme, 'hover:bg-neutral-700/50', 'hover:bg-white/60')
+                  )}
                 >
                   <Upload className="mr-2 size-4" /> Upload .txt
                 </button>
               </div>
 
               {/* Built-in Tab Content */}
-              <div className={classNames("p-2 text-sm text-neutral-400", activeTab !== 'built-in' && 'hidden')}>
-                <Badge className={classNames("font-normal", error && "bg-red-800 text-red-100")}>{status}</Badge>
+              <div className={classNames("p-2 text-sm", tn(theme, "text-neutral-400", "text-neutral-600"), activeTab !== 'built-in' && 'hidden')}>
+                <Badge theme={theme} className={classNames("font-normal", error && tn(theme, "bg-red-800 text-red-100", "bg-red-100 text-red-700"))}>{status}</Badge>
                 {error && <p className="mt-2 text-xs text-red-400">{error}</p>}
-                <Button variant="outline" size="sm" onClick={reload} className="mt-2">
+                <Button theme={theme} variant="outline" size="sm" onClick={reload} className="mt-2">
                   <RefreshCw className="mr-2 size-4" /> Reload List
                 </Button>
               </div>
@@ -549,6 +591,7 @@ export default function WordlePattern() {
               <div className={classNames("p-2 space-y-2", activeTab !== 'upload' && 'hidden')}>
                 <label htmlFor="file-upload" className="text-sm text-neutral-400">Select 5-letter word list (.txt)</label>
                 <Input
+                  theme={theme}
                   id="file-upload"
                   type="file"
                   accept=".txt"
@@ -561,11 +604,11 @@ export default function WordlePattern() {
             </div>
 
             {/* Actions */}
-            <div className="flex gap-2 pt-4 border-t border-neutral-800">
-              <Button onClick={compute} disabled={!canCompute || working} className="w-full">
+            <div className={classNames("flex gap-2 pt-4 border-t", tn(theme, "border-neutral-800", "border-neutral-200"))}>
+              <Button theme={theme} onClick={compute} disabled={!canCompute || working} className="w-full">
                 {working ? (<><Loader2 className="mr-2 size-4 animate-spin" /> Computing…</>) : "Compute Guesses"}
               </Button>
-              <Button variant="secondary" onClick={resetResults} disabled={results.candidates.length === 0}>
+              <Button theme={theme} variant="secondary" onClick={resetResults} disabled={results.candidates.length === 0}>
                 Clear Results
               </Button>
             </div>
@@ -577,10 +620,10 @@ export default function WordlePattern() {
           </div>
 
           {/* Right Column (Grid) */}
-          <div className="p-5 rounded-lg border border-neutral-800 bg-neutral-900/70 flex flex-col items-center justify-center min-h-[500px]">
+          <div className={classNames("p-5 rounded-lg border flex flex-col items-center justify-center min-h-[500px]", tn(theme, "border-neutral-800 bg-neutral-900/70", "border-neutral-200 bg-white/80"))}>
             <h2 className="text-xl font-semibold mb-4 text-center">Draw your desired pattern (5×6)</h2>
-            <GridEditor grid={grid} setGrid={setGrid} activeColor={activeColor} />
-            <div className="mt-4 text-xs text-center text-neutral-400 flex justify-center items-center gap-x-3 gap-y-1 flex-wrap">
+            <GridEditor grid={grid} setGrid={setGrid} activeColor={activeColor} colors={colors} />
+            <div className={classNames("mt-4 text-xs text-center flex justify-center items-center gap-x-3 gap-y-1 flex-wrap", tn(theme, "text-neutral-400", "text-neutral-600"))}>
               <span>Legend:</span>
               <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-[#6aaa64]" /> Green</span>
               <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-[#c9b458]" /> Yellow</span>
@@ -593,18 +636,18 @@ export default function WordlePattern() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
 
             {/* Results Card */}
-            <div className="p-5 rounded-lg border border-neutral-800 bg-neutral-900/70">
+            <div className={classNames("p-5 rounded-lg border", tn(theme, "border-neutral-800 bg-neutral-900/70", "border-neutral-200 bg-white/80"))}>
               <h2 className="text-xl font-semibold mb-4">Results</h2>
               <div className="space-y-4">
                 {results.candidates.length === 0 ? (
-                  <p className="text-sm text-neutral-400">
+                  <p className={classNames("text-sm", tn(theme, "text-neutral-400", "text-neutral-600"))}>
                     No results yet. Enter a valid solution, draw at least one row, and click Compute guesses.
                   </p>
                 ) : (
                   <>
                     {/* Impossible Rows Box */}
                     {impossibleRows.length > 0 && (
-                      <div className="rounded-lg border border-red-700 p-3 bg-red-900/30 text-red-300 space-y-1">
+                      <div className={classNames("rounded-lg border p-3 space-y-1", tn(theme, "border-red-700 bg-red-900/30 text-red-300", "border-red-300 bg-red-50 text-red-700"))}>
                         <p className="font-semibold flex items-center"><AlertCircle className="mr-2 size-4" /> Impossible Rows Detected</p>
                         <p className="text-sm">
                           Rows {impossibleRows.map(i => i + 1).join(", ")} produced zero matches. Recheck your solution or pattern.
@@ -640,7 +683,7 @@ export default function WordlePattern() {
                               </span>
                               <div className="flex gap-0.5">
                                 {pat.map((v, idx) => (
-                                  <span key={idx} className={classNames("w-4 h-4 rounded-sm border", COLORS[v as ColorKey].bg, COLORS[v as ColorKey].border)} />
+                                  <span key={idx} className={classNames("w-4 h-4 rounded-sm border", colors[v as ColorKey].bg, colors[v as ColorKey].border)} />
                                 ))}
                               </div>
                             </div>
