@@ -149,19 +149,30 @@ type ColorKey = 0 | 1 | 2 | 3; // 0: empty, 1: gray, 2: yellow, 3: green
 
 type ThemeMode = 'dark' | 'light';
 
-const COLORS_DARK = {
+// Define structural types for color maps to avoid literal-type incompatibilities between themes
+type ColorDef = {
+  readonly name: 'empty' | 'gray' | 'yellow' | 'green';
+  readonly bg: string;
+  readonly border: string;
+  readonly text: string;
+  readonly symbol: React.ReactNode | null;
+};
+
+type ColorMap = { readonly 0: ColorDef; readonly 1: ColorDef; readonly 2: ColorDef; readonly 3: ColorDef };
+
+const COLORS_DARK: ColorMap = {
   0: { name: "empty",  bg: "bg-neutral-900", border: "border-neutral-700", text: "text-neutral-500", symbol: null },
   1: { name: "gray",   bg: "bg-[#787c7e]",  border: "border-[#787c7e]",   text: "text-white", symbol: null },
   2: { name: "yellow", bg: "bg-[#c9b458]",  border: "border-[#c9b458]",   text: "text-white", symbol: <CircleDot className="size-6" /> },
   3: { name: "green",  bg: "bg-[#6aaa64]",  border: "border-[#6aaa64]",   text: "text-white", symbol: <CheckIcon className="size-6" /> },
-} as const;
+};
 
-const COLORS_LIGHT = {
+const COLORS_LIGHT: ColorMap = {
   0: { name: "empty",  bg: "bg-white", border: "border-neutral-300", text: "text-neutral-400", symbol: null },
   1: { name: "gray",   bg: "bg-[#787c7e]",  border: "border-[#787c7e]",   text: "text-white", symbol: null },
   2: { name: "yellow", bg: "bg-[#c9b458]",  border: "border-[#c9b458]",   text: "text-white", symbol: <CircleDot className="size-6" /> },
   3: { name: "green",  bg: "bg-[#6aaa64]",  border: "border-[#6aaa64]",   text: "text-white", symbol: <CheckIcon className="size-6" /> },
-} as const;
+};
 
 
 function normalizeWord(w: string) { return (w || "").toLowerCase().replace(/[^a-z]/g, ""); }
