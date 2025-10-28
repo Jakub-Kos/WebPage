@@ -191,11 +191,20 @@ function useWordlist() {
         // 1. Load from uploaded file
         txt = await file.text();
       } else {
-        // 2. Load from /wordlists/wordle.txt in your public folder
-        // Vite serves the 'public' directory at the root '/'
-        const res = await fetch('.public/wordlists/wordle.txt'); // <--- REAL FETCH
+        // 2. Load from public/wordlists/wordle.txt (served under BASE_URL)
+        // In dev, BASE_URL is '/', in production (GitHub Pages) it's '/WebPage/' from vite.config.ts.
+        // Place your file at: web/public/wordlists/wordle.txt
+        const base = (import.meta as any).env?.BASE_URL ?? '/';
+        const url = `${base.replace(/\/$/, '')}/wordlists/wordle.txt`;
+        console.debug('[WordlePattern] Fetching word list from:', url);
+        const res = await fetch(url);
         if (!res.ok) {
-          throw new Error(`HTTP error ${res.status} (File not found at /wordlists/wordle.txt)`);
+          throw new Error(`HTTP error ${res.status} (File not found at ${url})`);
+        }
+        const ct = res.headers.get('content-type') || '';
+        if (ct.includes('text/html')) {
+          // Likely got index.html due to wrong path/base; abort to fallback.
+          throw new Error(`Got HTML instead of a word list from ${res.url || url}. Ensure file exists under public/wordlists/wordle.txt and URL resolves to a .txt file.`);
         }
         txt = await res.text();
       }
@@ -378,10 +387,13 @@ export default function WordlePattern() {
   const loadDemoPattern = () => {
     setSolution("cigar");
     setGrid([
-      [2, 1, 1, 1, 1], // CRANE
-      [1, 3, 1, 1, 1], // POISE
-      [3, 3, 3, 3, 3], // CIGAR
-      ...Array(3).fill(Array(5).fill(0)),
+      [2, 2, 1, 2, 2], // gamic
+      [2, 2, 1, 2, 2], // gamic
+      [1, 1, 2, 1, 1], // words
+      [1, 1, 2, 1, 1], // three
+      [3, 1, 1, 1, 3], // color
+      [3, 3, 3, 3, 3], // cigar
+      ...Array(0).fill(Array(5).fill(0)),
     ].map(r => r.slice()));
     resetResults();
   };
@@ -655,7 +667,7 @@ export default function WordlePattern() {
                 </p>
                 <p>
                   It finds all guess words that would produce the **exact color pattern** you painted for each row.
-                  The suggested sequence simply takes the first candidate found for each painted row. For comprehensive results, upload a full Wordle guess list (~13k words) using the **Upload .txt** tab.
+                  The suggested sequence simply takes the first candidate found for each painted row. For comprehensive results, upload a full Wordle guess list (~13k words) using the **Upload .txt** tab. The build in has 33747 5-letter words but some of them are correctly not recognised by WORDLE.
                 </p>
               </div>
             </div>
@@ -663,7 +675,7 @@ export default function WordlePattern() {
 
         {/* Footer */}
         <footer className="text-center text-xs text-neutral-500 pt-6 border-t border-neutral-800">
-          Made for Jakub — drop this file into your project or run it standalone.
+          Made by Jakub Kos — 28.10.25
         </footer>
       </div>
     </div>
