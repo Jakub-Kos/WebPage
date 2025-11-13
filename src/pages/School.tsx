@@ -6,16 +6,12 @@ export default function School() {
       <h1>School Projects</h1>
       <p>Here I aim to publish useful apps I've done for my coursework and assignments.</p>
 
-      <h2>Courses</h2>
-      <ul>
-        <li>
-          <strong>Úvod do robotiky – NAIL028</strong>
-          <br />
-          <Link to="/school/robotika/InteractiveArm">→ Interactive 2D RR Manipulator App</Link>
-          <br />
-          <Link to="/school/robotika/RTTManipulator">→ RTT Manipulator – 3D & Side Views</Link>
-        </li>
-      </ul>
+        <h2>Robotics</h2>
+        <ul>
+            <li><Link to="/school/robotika/InteractiveArm">Interactive 2D RR Arm</Link></li>
+            <li><Link to="/school/robotika/RTTManipulator">RTT Manipulator Simulator</Link></li>
+            <li><a href="/WebPage/robotics/index.html">Line-Following Robot Simulator</a></li>
+        </ul>
     </div>
   );
 }

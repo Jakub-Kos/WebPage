@@ -1,0 +1,2079 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-gray-900 text-gray-300">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Line-Following Robot Simulator</title>
+
+  <!-- Tailwind -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- CodeMirror -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/material-darker.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
+
+  <style>
+    /* Base editor box */
+    .CodeMirror {
+      height: 100%;
+      border: 1px solid #444;
+      background-color: #0f172a; /* slate-900-ish */
+      color: #e5e7eb;           /* slate-200-ish */
+      font-size: 0.85rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+      "Liberation Mono", "Courier New", monospace;
+    }
+
+    /* Dark theme background + foreground */
+    .cm-s-material-darker.CodeMirror {
+      background-color: #0f172a;
+      color: #e5e7eb;
+    }
+
+    /* Gutter (line numbers) – ONLY colors + padding, no width / margin hacks */
+    .cm-s-material-darker .CodeMirror-gutters {
+      background-color: #020617;          /* dark strip on the left */
+      border-right: 1px solid #4b5563;    /* thin vertical line */
+    }
+
+    .cm-s-material-darker .CodeMirror-linenumber {
+      color: #64748b;
+      padding: 0 8px 0 4px;               /* space around numbers ONLY */
+    }
+
+    /* Do NOT touch layout of code lines; let CodeMirror handle it */
+    .cm-s-material-darker .CodeMirror-lines,
+    .cm-s-material-darker .CodeMirror-code,
+    .cm-s-material-darker .CodeMirror pre {
+      padding: 0;
+      margin: 0;
+    }
+
+    /* Cursor: make it clearly visible */
+    .CodeMirror-cursor {
+      border-left: 2px solid #f97316 !important; /* orange caret */
+    }
+
+    /* Selection color */
+    .CodeMirror-selected {
+      background-color: rgba(59, 130, 246, 0.35) !important;
+    }
+
+    /* Syntax coloring on top of the material-darker theme */
+    .cm-s-material-darker .cm-keyword    { color: #f97316; }  /* orange */
+    .cm-s-material-darker .cm-number     { color: #22c55e; }  /* green */
+    .cm-s-material-darker .cm-string     { color: #eab308; }  /* yellow */
+    .cm-s-material-darker .cm-comment    { color: #6b7280; font-style: italic; }
+    .cm-s-material-darker .cm-def        { color: #38bdf8; }
+    .cm-s-material-darker .cm-variable   { color: #e5e7eb; }
+    .cm-s-material-darker .cm-variable-2 { color: #a5b4fc; }
+    .cm-s-material-darker .cm-operator   { color: #facc15; }
+  </style>
+
+</head>
+
+<body class="h-full overflow-hidden">
+
+<!-- === MAIN LAYOUT: THREE PANELS === -->
+<div class="flex h-full w-full">
+
+  <!-- ========== LEFT PANEL (EDITOR) ========== -->
+  <div id="leftPanel" class="w-80 bg-gray-800 border-r border-gray-700 flex flex-col relative">
+    <div id="leftResizeHandle"
+         class="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-gray-600/40 z-10"></div>
+    <!-- Tabs -->
+    <div class="flex text-gray-300 border-b border-gray-700">
+      <button class="tab-btn flex-1 py-2 text-center hover:bg-gray-700" data-tab="trackTab">Track</button>
+      <button class="tab-btn flex-1 py-2 text-center hover:bg-gray-700" data-tab="robotTab">Robot</button>
+      <button class="tab-btn flex-1 py-2 text-center hover:bg-gray-700" data-tab="codeTab">Code</button>
+    </div>
+
+    <!-- === TRACK TAB === -->
+    <div id="trackTab" class="tab-content p-4 space-y-4 hidden">
+      <h2 class="text-lg font-semibold">Tracks</h2>
+
+      <!-- Track Library -->
+      <div>
+        <label class="block text-sm mb-1">Predefined Tracks</label>
+        <select id="trackSelector" class="w-full bg-gray-700 text-gray-300 p-2 rounded">
+          <option value="simpleOval">Simple Oval</option>
+          <option value="sCurve">S-Curve</option>
+          <option value="sharp90">Sharp 90° Turn</option>
+          <option value="figureEight">Figure Eight</option>
+          <option value="cloverLeaf">cloverLeaf</option>
+          <option value="chicane">Chicane</option>
+          <option value="mazeLoop">Maze Loop</option>
+          <option value="spiralIn">Spiral In</option>
+        </select>
+      </div>
+
+      <!-- Edit Mode -->
+      <div>
+        <label class="inline-flex items-center space-x-2">
+          <input id="editTrackMode" type="checkbox" class="form-checkbox">
+          <span>Edit Track Mode</span>
+        </label>
+      </div>
+
+      <div>
+        <label class="inline-flex items-center space-x-2">
+          <input id="closedTrackMode" type="checkbox" class="form-checkbox">
+          <span>Closed Track (connect end → start)</span>
+        </label>
+      </div>
+
+      <!-- Track Properties -->
+      <div>
+        <label class="block text-sm mb-1">Line Width (cm)</label>
+        <input id="lineWidthSlider" type="range" min="0.5" max="5" step="0.1"
+               class="w-full">
+      </div>
+      <div>
+        <label class="block text-sm mb-1">Line Gradient (cm)</label>
+        <input id="lineGradientSlider" type="range" min="0" max="3" step="0.1"
+               class="w-full">
+      </div>
+
+      <!-- File Management -->
+      <div class="pt-4 border-t border-gray-700 space-y-2">
+        <button id="saveTrackBtn" class="w-full bg-blue-600 hover:bg-blue-700 py-2 rounded">Save Track</button>
+        <input id="loadTrackInput" type="file" accept=".json" class="hidden">
+        <button id="loadTrackBtn" class="w-full bg-gray-600 hover:bg-gray-700 py-2 rounded">Load Track</button>
+      </div>
+    </div>
+
+    <!-- === ROBOT TAB === -->
+    <div id="robotTab" class="tab-content p-4 space-y-4 hidden">
+      <h2 class="text-lg font-semibold">Robot Configuration</h2>
+
+      <!-- Robot Parameters -->
+      <div>
+        <label class="block text-sm mb-1">Wheelbase (cm)</label>
+        <input id="wheelbaseSlider" type="range" min="5" max="20" step="0.1" class="w-full">
+        <div class="text-xs text-gray-400 mt-1">Value: <span id="wheelbaseValue"></span> cm</div>
+      </div>
+
+      <div>
+        <label class="block text-sm mb-1">Sensor Distance (cm)</label>
+        <input id="sensorDistSlider" type="range" min="1" max="10" step="0.1" class="w-full">
+        <div class="text-xs text-gray-400 mt-1">Value: <span id="sensorDistValue"></span> cm</div>
+      </div>
+
+      <div>
+        <label class="block text-sm mb-1">Sensor Spacing - Inner (cm)</label>
+        <input id="sensorInnerSlider" type="range" min="0.5" max="5" step="0.1" class="w-full">
+        <div class="text-xs text-gray-400 mt-1">Value: <span id="sensorInnerValue"></span> cm</div>
+      </div>
+
+      <div>
+        <label class="block text-sm mb-1">Sensor Spacing - Outer (cm)</label>
+        <input id="sensorOuterSlider" type="range" min="1" max="10" step="0.1" class="w-full">
+        <div class="text-xs text-gray-400 mt-1">Value: <span id="sensorOuterValue"></span> cm</div>
+      </div>
+
+      <!-- Save/Load -->
+      <div class="pt-4 border-t border-gray-700 space-y-2">
+        <button id="saveRobotBtn" class="w-full bg-blue-600 hover:bg-blue-700 py-2 rounded">Save Robot</button>
+        <input id="loadRobotInput" type="file" accept=".json" class="hidden">
+        <button id="loadRobotBtn" class="w-full bg-gray-600 hover:bg-gray-700 py-2 rounded">Load Robot</button>
+      </div>
+    </div>
+
+    <!-- === CODE TAB === -->
+    <div id="codeTab" class="tab-content p-4 space-y-4 hidden">
+      <h2 class="text-lg font-semibold">Robot Logic</h2>
+
+      <p class="text-sm text-gray-400">
+        Upload .ino/.h/.cpp files for reference only.
+        The simulator runs the JavaScript function below.
+      </p>
+
+      <input id="codeUpload" type="file" multiple accept=".ino,.h,.cpp"
+             class="block w-full bg-gray-700 p-2 rounded" />
+
+      <h3 class="text-md font-semibold">JavaScript Logic</h3>
+      <div class="h-72">
+      <textarea id="logicEditor">
+// This function is called every simulation step.
+// - sensors: [s0, s1, s2, s3, s4]  (0–1023, higher usually means "more line")
+// - config: read-only object with fields like config.LINE_THRESHOLD, config.BASE_SPEED
+// - log:    function(message) that prints to the Debug Log on the right.
+//
+// You MUST define this function:
+//
+//   function runRobotLogic(sensors, config, log) {
+//       ...
+//       return { leftSpeed: <0-100>, rightSpeed: <0-100> };
+//   }
+
+function runRobotLogic(sensors, config, log) {
+  // Example: simple proportional line follower
+
+  const weights = [-2, -1, 0, 1, 2];
+  let sum = 0;
+  let total = 0;
+
+  for (let i = 0; i < 5; i++) {
+    const v = sensors[i] / 1023; // normalize 0–1
+    sum += v * weights[i];
+    total += v;
+  }
+
+  if (total < 0.05) {
+    // Probably lost the line
+    log("Lost line, going straight slowly.");
+    return { leftSpeed: 30, rightSpeed: 30 };
+  }
+
+  let base = config.BASE_SPEED;
+  let turn = sum * 40; // tuning constant
+
+  let left  = base - turn;
+  let right = base + turn;
+
+  // Clamp to 0–MAX_SPEED
+  left  = Math.max(0, Math.min(config.MAX_SPEED, left));
+  right = Math.max(0, Math.min(config.MAX_SPEED, right));
+
+  return { leftSpeed: left, rightSpeed: right };
+}
+      </textarea>
+      </div>
+
+      <button id="applyCodeBtn" class="w-full bg-green-600 hover:bg-green-700 py-2 rounded">Apply Code</button>
+      <div class="space-y-1">
+        <h3 class="text-sm font-semibold">Debug Log</h3>
+        <textarea id="debugLog"
+                  readonly
+                  class="w-full h-32 bg-gray-900 border border-gray-700 rounded p-1 text-xs font-mono resize-none"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== CENTER PANEL (CANVAS SIMULATOR) ========== -->
+  <div class="flex-1 relative bg-gray-900">
+    <canvas id="simCanvas" class="w-full h-full"></canvas>
+
+    <!-- Left panel toggle -->
+    <button id="toggleLeftPanel"
+            class="absolute left-0 top-1/2 -translate-y-1/2 bg-gray-800/80 text-gray-200 px-1 py-2 rounded-r border border-gray-700 text-xs">
+      ‹
+    </button>
+
+    <!-- Right panel toggle -->
+    <button id="toggleRightPanel"
+            class="absolute right-0 top-1/2 -translate-y-1/2 bg-gray-800/80 text-gray-200 px-1 py-2 rounded-l border border-gray-700 text-xs">
+      ›
+    </button>
+
+    <!-- Scale bar (bottom-right) -->
+    <div id="scaleBar"
+         class="absolute bottom-2 right-2 text-xs text-gray-300 bg-gray-800/80 px-2 py-1 rounded border border-gray-600 pointer-events-none">
+      <div class="relative mt-1 mb-0.5">
+        <div id="scaleBarLine" class="h-px bg-gray-300"></div>
+        <div id="scaleBarTicks" class="flex justify-between -mt-1">
+          <div class="w-px h-2 bg-gray-300"></div>
+          <div class="w-px h-2 bg-gray-300"></div>
+          <div class="w-px h-2 bg-gray-300"></div>
+          <div class="w-px h-2 bg-gray-300"></div>
+        </div>
+      </div>
+      <div id="scaleBarLabel" class="text-right mt-0.5">5 cm</div>
+    </div>
+  </div>
+
+  <!-- ========== RIGHT PANEL (DEBUG) ========== -->
+  <div id="rightPanel" class="w-72 bg-gray-800 border-l border-gray-700 p-4 flex flex-col space-y-4 relative">
+    <div id="rightResizeHandle"
+         class="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-gray-600/40"></div>
+    <!-- Simulation Controls -->
+    <div class="space-y-2">
+      <h2 class="text-lg font-semibold">Simulation</h2>
+      <button id="placeRobotBtn" class="w-full bg-purple-600 hover:bg-purple-700 py-2 rounded">Place Robot</button>
+      <button id="runBtn" class="w-full bg-green-600 hover:bg-green-700 py-2 rounded">Run</button>
+      <button id="pauseBtn" class="w-full bg-yellow-600 hover:bg-yellow-700 py-2 rounded">Pause</button>
+      <button id="resetBtn" class="w-full bg-red-600 hover:bg-red-700 py-2 rounded">Reset</button>
+      <!-- Simulation Speed -->
+      <div class="space-y-2 mt-2">
+        <h3 class="text-sm font-semibold">Simulation Speed</h3>
+        <div class="flex flex-wrap gap-1">
+          <button data-speed="0.25" class="sim-speed-btn px-2 py-1 text-xs rounded bg-gray-700 hover:bg-gray-600">0.25x</button>
+          <button data-speed="0.5"  class="sim-speed-btn px-2 py-1 text-xs rounded bg-gray-700 hover:bg-gray-600">0.5x</button>
+          <button data-speed="1"    class="sim-speed-btn px-2 py-1 text-xs rounded bg-blue-600 hover:bg-blue-500">1x</button>
+          <button data-speed="2"    class="sim-speed-btn px-2 py-1 text-xs rounded bg-gray-700 hover:bg-gray-600">2x</button>
+          <button data-speed="5"    class="sim-speed-btn px-2 py-1 text-xs rounded bg-gray-700 hover:bg-gray-600">5x</button>
+        </div>
+        <div class="flex items-center gap-2">
+          <input id="simSpeedSlider" type="range"
+                 min="0.1" max="5" step="0.05"
+                 class="flex-1">
+          <span id="simSpeedLabel" class="text-xs w-10 text-right">1.0x</span>
+        </div>
+      </div>
+
+      <!-- Uncertainty / Noise Controls -->
+      <div class="space-y-2 mt-4">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-semibold">Uncertainty</h3>
+          <label class="inline-flex items-center text-xs space-x-1">
+            <input id="uncertaintyEnabled" type="checkbox" class="form-checkbox" checked>
+            <span>Enabled</span>
+          </label>
+        </div>
+
+        <!-- Sensors -->
+        <div class="space-y-1 text-xs">
+          <div class="flex justify-between">
+            <span>Sensor noise σ</span>
+            <span id="sensorNoiseLabel">40</span>
+          </div>
+          <input id="sensorNoiseSlider" type="range" min="0" max="200" step="5" class="w-full">
+
+          <div class="flex justify-between mt-1">
+            <span>Sensor bias range</span>
+            <span id="sensorBiasLabel">80</span>
+          </div>
+          <input id="sensorBiasSlider" type="range" min="0" max="200" step="5" class="w-full">
+
+          <div class="flex justify-between mt-1">
+            <span>Line noise (cm)</span>
+            <span id="lineNoiseLabel">0.4</span>
+          </div>
+          <input id="lineNoiseSlider" type="range" min="0" max="2" step="0.05" class="w-full">
+        </div>
+
+        <!-- Motors -->
+        <div class="space-y-1 text-xs mt-2">
+          <div class="flex justify-between">
+            <span>Motor quant step (%)</span>
+            <span id="motorQuantLabel">2</span>
+          </div>
+          <input id="motorQuantSlider" type="range" min="0" max="10" step="1" class="w-full">
+
+          <div class="flex justify-between mt-1">
+            <span>Motor noise σ (%)</span>
+            <span id="motorNoiseLabel">3</span>
+          </div>
+          <input id="motorNoiseSlider" type="range" min="0" max="20" step="1" class="w-full">
+
+          <div class="flex justify-between mt-1">
+            <span>Motor lag (s)</span>
+            <span id="motorLagLabel">0.15</span>
+          </div>
+          <input id="motorLagSlider" type="range" min="0" max="0.5" step="0.01" class="w-full">
+        </div>
+      </div>
+    </div>
+
+    <!-- Sensor Monitor -->
+    <div>
+      <h2 class="text-lg font-semibold mb-2">Sensors</h2>
+      <div id="sensorMonitor" class="grid grid-cols-5 gap-2">
+        <div class="sensor-box p-2 bg-gray-700 rounded text-center">S0</div>
+        <div class="sensor-box p-2 bg-gray-700 rounded text-center">S1</div>
+        <div class="sensor-box p-2 bg-gray-700 rounded text-center">S2</div>
+        <div class="sensor-box p-2 bg-gray-700 rounded text-center">S3</div>
+        <div class="sensor-box p-2 bg-gray-700 rounded text-center">S4</div>
+      </div>
+    </div>
+
+    <!-- Motor Monitor -->
+    <div>
+      <h2 class="text-lg font-semibold mb-2">Motors</h2>
+      <div class="flex justify-between">
+        <span>Left:</span><span id="leftMotorOut">0%</span>
+      </div>
+      <div class="flex justify-between">
+        <span>Right:</span><span id="rightMotorOut">0%</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* Tab switching */
+const tabs = document.querySelectorAll('.tab-btn');
+tabs.forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+    document.getElementById(btn.dataset.tab).classList.remove('hidden');
+  });
+});
+
+/* Initialize CodeMirror */
+window.codeMirrorEditor = CodeMirror.fromTextArea(
+        document.getElementById("logicEditor"),
+        {
+          mode: "javascript",
+          theme: "material-darker",
+          lineNumbers: false,        // <- this is what creates the gutter
+          tabSize: 2,
+          indentWithTabs: false,
+          lineWrapping: true,
+          viewportMargin: Infinity
+        }
+);
+
+const canvas = document.getElementById("simCanvas");
+const ctx = canvas.getContext("2d");
+
+/* ---------- Constants ---------- */
+const PIXELS_PER_CM_DEFAULT = 10;
+let pixelsPerCm = PIXELS_PER_CM_DEFAULT;
+
+/* ---------- View State ---------- */
+let view = {
+  offsetX: 0,
+  offsetY: 0,
+  zoom: 1.0,
+  isPanning: false,
+  lastX: 0,
+  lastY: 0
+};
+
+/* ---------- Resize Canvas to Fill Panel ---------- */
+function resizeCanvas() {
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width;
+  canvas.height = rect.height;
+}
+window.addEventListener("resize", resizeCanvas);
+resizeCanvas();
+
+/* ---------- Coordinate Transform Helpers ---------- */
+function worldToScreen(x, y) {
+  return {
+    x: (x * pixelsPerCm) * view.zoom + view.offsetX,
+    y: (y * pixelsPerCm) * view.zoom + view.offsetY
+  };
+}
+
+function screenToWorld(x, y) {
+  return {
+    x: (x - view.offsetX) / (pixelsPerCm * view.zoom),
+    y: (y - view.offsetY) / (pixelsPerCm * view.zoom)
+  };
+}
+
+/* ---------- Pan Handling ---------- */
+
+canvas.addEventListener("mousedown", e => {
+  // Only pan when NOT in track edit mode
+  const editTrack = document.getElementById("editTrackMode").checked;
+  if (editTrack) return;
+
+  view.isPanning = true;
+  view.lastX = e.clientX;
+  view.lastY = e.clientY;
+});
+
+canvas.addEventListener("mouseup", () => {
+  view.isPanning = false;
+});
+
+canvas.addEventListener("mouseleave", () => {
+  view.isPanning = false;
+});
+
+canvas.addEventListener("mousemove", e => {
+  if (!view.isPanning) return;
+
+  let dx = e.clientX - view.lastX;
+  let dy = e.clientY - view.lastY;
+  view.lastX = e.clientX;
+  view.lastY = e.clientY;
+
+  view.offsetX += dx;
+  view.offsetY += dy;
+});
+
+/* ---------- Zoom Handling ---------- */
+
+canvas.addEventListener("wheel", e => {
+  e.preventDefault();
+
+  const mouse = screenToWorld(e.clientX, e.clientY);
+
+  const zoomFactor = 1.1;
+  if (e.deltaY < 0) {
+    view.zoom *= zoomFactor;
+  } else {
+    view.zoom /= zoomFactor;
+  }
+
+  // Adjust offset so zoom is centered on cursor
+  const newScreen = worldToScreen(mouse.x, mouse.y);
+  view.offsetX += (e.clientX - newScreen.x);
+  view.offsetY += (e.clientY - newScreen.y);
+});
+
+/* ---------- Grid Rendering ---------- */
+
+function drawGrid() {
+  const w = canvas.width;
+  const h = canvas.height;
+
+  const cmPerLine = 1;
+  const cmPerDarkLine = 10;
+
+  ctx.lineWidth = 1;
+
+  const step = pixelsPerCm * view.zoom * cmPerLine;
+
+  // Convert screen to world bounds
+  const topLeft = screenToWorld(0, 0);
+  const bottomRight = screenToWorld(w, h);
+
+  // Draw vertical lines
+  let startX = Math.floor(topLeft.x);
+  let endX = Math.ceil(bottomRight.x);
+
+  for (let x = startX; x <= endX; x++) {
+    const screen = worldToScreen(x, 0);
+    ctx.beginPath();
+
+    if (x % cmPerDarkLine === 0) {
+      ctx.strokeStyle = "#444"; // darker 10cm lines
+    } else {
+      ctx.strokeStyle = "#333"; // lighter 1cm lines
+    }
+
+    ctx.moveTo(screen.x, 0);
+    ctx.lineTo(screen.x, h);
+    ctx.stroke();
+  }
+
+  // Draw horizontal lines
+  let startY = Math.floor(topLeft.y);
+  let endY = Math.ceil(bottomRight.y);
+
+  for (let y = startY; y <= endY; y++) {
+    const screen = worldToScreen(0, y);
+    ctx.beginPath();
+
+    if (y % cmPerDarkLine === 0) {
+      ctx.strokeStyle = "#444";
+    } else {
+      ctx.strokeStyle = "#333";
+    }
+
+    ctx.moveTo(0, screen.y);
+    ctx.lineTo(w, screen.y);
+    ctx.stroke();
+  }
+}
+
+/* ---------- Main Render Loop ---------- */
+
+function render() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Draw grid
+  drawGrid();
+
+  // Tracks, robot, debug overlays will be drawn later in Parts 3–6
+
+  requestAnimationFrame(render);
+}
+
+requestAnimationFrame(render);
+
+/* ============================================
+   PART 3 — SIMPLE ANCHOR-BASED SPLINE TRACK EDITOR
+   ============================================ */
+
+let track = {
+  name: "Untitled Track",
+  description: "",
+  properties: {
+    lineWidth_cm: 2,
+    lineGradient_cm: 1
+  },
+  points: [] // simple anchors only
+};
+
+/* --- Bind Sliders --- */
+document.getElementById("lineWidthSlider").addEventListener("input", e =>
+        track.properties.lineWidth_cm = parseFloat(e.target.value)
+);
+
+document.getElementById("lineGradientSlider").addEventListener("input", e =>
+        track.properties.lineGradient_cm = parseFloat(e.target.value)
+);
+
+/* --- Predefined Tracks --- */
+const predefinedTracks = {
+  simpleOval: {
+    name: "Simple Oval",
+    description: "Large training oval with gentle corners.",
+    properties: { lineWidth_cm: 2, lineGradient_cm: 1 },
+    // Roughly 400x300 cm, centered around (0,0)
+    points: [
+      { x: -200, y:   0 },
+      { x: -120, y: -140 },
+      { x:   80, y: -160 },
+      { x:  200, y:   0 },
+      { x:  120, y:  140 },
+      { x:  -80, y:  160 }
+    ]
+  },
+
+  sCurve: {
+    name: "S-Curve",
+    description: "Smooth S-curve with medium radius, good for tuning.",
+    properties: { lineWidth_cm: 2, lineGradient_cm: 1 },
+    // Long S that crosses roughly through center
+    points: [
+      { x: -220, y: -120 },
+      { x: -100, y:   40 },
+      { x:   40, y: -180 },
+      { x:  180, y:   40 },
+      { x:  260, y:  140 }
+    ]
+  },
+
+  sharp90: {
+    name: "Sharp 90° Turn",
+    description: "Straight entry with a tight right-angle corner.",
+    properties: { lineWidth_cm: 2, lineGradient_cm: 1 },
+    // Straight from left, 90° downwards
+    points: [
+      { x: -250, y: -80 },
+      { x:   50, y: -80 },
+      { x:  250, y: -80 },
+      { x:  250, y:  160 }
+    ]
+  },
+  figureEight: {
+    name: "Figure Eight",
+    description: "Classic crossing track with two loops.",
+    properties: { lineWidth_cm: 2, lineGradient_cm: 1 },
+    points: [
+      { x: -150, y:    0 },
+      { x: -210, y: -120 },
+      { x:  -80, y: -170 },
+      { x:    0, y:  -80 },
+      { x:   80, y: -170 },
+      { x:  210, y: -120 },
+      { x:  150, y:    0 },
+      { x:  210, y:  120 },
+      { x:   80, y:  170 },
+      { x:    0, y:   80 },
+      { x:  -80, y:  170 },
+      { x: -210, y:  120 }
+    ]
+  },
+
+  cloverLeaf: {
+    name: "Clover Leaf",
+    description: "Four-petal loop for varied curvature.",
+    properties: { lineWidth_cm: 2, lineGradient_cm: 1 },
+    points: [
+      // upper-left petal
+      { x: -60,  y:   0 },
+      { x: -200, y:   10 },
+      { x: -200, y:  140 },
+      { x: -80,  y:  200 },
+      // upper-right petal
+      { x:   0,  y:  200 },
+      { x:  80,  y:  200 },
+      { x:  200, y:  140 },
+      { x:  200, y:   10 },
+      // lower-right petal
+      { x:  60,  y:   0 },
+      { x:  200, y:  -10 },
+      { x:  200, y: -140 },
+      { x:  80,  y: -200 },
+      // lower-left petal
+      { x:   0,  y: -200 },
+      { x: -80,  y: -200 },
+      { x: -200, y: -140 },
+      { x: -200, y:  -10 }
+    ]
+  },
+
+  chicane: {
+    name: "Chicane",
+    description: "Fast straight with quick left-right-left transitions.",
+    properties: { lineWidth_cm: 2, lineGradient_cm: 1 },
+    points: [
+      { x: -260, y:   0 },
+      { x: -180, y: -40 },
+      { x: -100, y:  40 },
+      { x:   -20, y: -40 },
+      { x:   60, y:  40 },
+      { x:  140, y: -30 },
+      { x:  220, y:   0 }
+    ]
+  },
+
+  mazeLoop: {
+    name: "Maze Loop",
+    description: "Orthogonal, maze-like loop with multiple corners.",
+    properties: { lineWidth_cm: 2, lineGradient_cm: 1 },
+    points: [
+      { x: -240, y: -180 },
+      { x: -80,  y: -180 },
+      { x:  80,  y: -180 },
+      { x: 240,  y: -180 },
+      { x: 240,  y:  -40 },
+      { x:  80,  y:  -40 },
+      { x:  80,  y:   40 },
+      { x: 160,  y:   40 },
+      { x: 160,  y:  180 },
+      { x: -160, y:  180 },
+      { x: -160, y:   40 },
+      { x: -80,  y:   40 },
+      { x: -80,  y:  -40 },
+      { x: -240, y:  -40 }
+    ]
+  },
+
+  spiralIn: {
+    name: "Spiral In",
+    description: "Wide outer loop spiralling towards the center.",
+    properties: { lineWidth_cm: 2, lineGradient_cm: 1 },
+    points: [
+      { x: -220, y:   0 },
+      { x: -210, y: -140 },
+      { x:  -80, y: -200 },
+      { x:   80, y: -160 },
+      { x:  190, y:  -60 },
+      { x:  210, y:   60 },
+      { x:  140, y:  150 },
+      { x:   30, y:  160 },
+      { x:  -60, y:  120 },
+      { x: -110, y:   60 },
+      { x:  -80, y:   10 },
+      { x:  -40, y:    0 }
+    ]
+  }
+};
+
+/* ============================================
+   UNCERTAINTY MODEL
+============================================ */
+
+const uncertainty = {
+  enabled: true,
+
+  // Sensors
+  sensorNoiseSigma: 40,     // random noise in ADC units (0–1023)
+  sensorBiasRange: 80,      // per-sensor constant bias in ±range
+  lineNoise_cm: 0.4,        // extra uncertainty on line edge distance (cm)
+
+  // Motors
+  motorQuantStep: 2,        // % step size (e.g. 2% resolution)
+  motorNoiseSigma: 3,       // random noise on motor speed (percent)
+  motorLagSeconds: 0.15     // first-order lag time constant
+};
+
+// Per-sensor constant *normalized* biases in [-1, 1].
+// Actual bias = sensorBiasNorm[i] * uncertainty.sensorBiasRange
+const sensorBiasNorm = Array(5).fill(0).map(() =>
+        (Math.random() * 2 - 1)
+);
+
+// Actual motor state (what the robot *really* does)
+let actualMotorSpeeds = { left: 0, right: 0 };  // percent -100..100
+
+// Simple Gaussian RNG (Box–Muller)
+function randNormal() {
+  const u1 = Math.random() || 1e-10;
+  const u2 = Math.random();
+  return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+}
+
+// Quantize to discrete steps (e.g. 2% resolution)
+function quantizePercent(p, step) {
+  return step > 0 ? Math.round(p / step) * step : p;
+}
+
+/* ============================================
+   UNCERTAINTY UI BINDINGS
+============================================ */
+
+const uncEnabledChk   = document.getElementById("uncertaintyEnabled");
+
+const sensorNoiseSlider = document.getElementById("sensorNoiseSlider");
+const sensorBiasSlider  = document.getElementById("sensorBiasSlider");
+const lineNoiseSlider   = document.getElementById("lineNoiseSlider");
+const motorQuantSlider  = document.getElementById("motorQuantSlider");
+const motorNoiseSlider  = document.getElementById("motorNoiseSlider");
+const motorLagSlider    = document.getElementById("motorLagSlider");
+
+const sensorNoiseLabel = document.getElementById("sensorNoiseLabel");
+const sensorBiasLabel  = document.getElementById("sensorBiasLabel");
+const lineNoiseLabel   = document.getElementById("lineNoiseLabel");
+const motorQuantLabel  = document.getElementById("motorQuantLabel");
+const motorNoiseLabel  = document.getElementById("motorNoiseLabel");
+const motorLagLabel    = document.getElementById("motorLagLabel");
+
+function syncUncertaintyUIFromModel() {
+  if (uncEnabledChk)  uncEnabledChk.checked = uncertainty.enabled;
+
+  if (sensorNoiseSlider) {
+    sensorNoiseSlider.value = uncertainty.sensorNoiseSigma;
+    sensorNoiseLabel.textContent = uncertainty.sensorNoiseSigma.toFixed(0);
+  }
+
+  if (sensorBiasSlider) {
+    sensorBiasSlider.value = uncertainty.sensorBiasRange;
+    sensorBiasLabel.textContent = uncertainty.sensorBiasRange.toFixed(0);
+  }
+
+  if (lineNoiseSlider) {
+    lineNoiseSlider.value = uncertainty.lineNoise_cm;
+    lineNoiseLabel.textContent = uncertainty.lineNoise_cm.toFixed(2);
+  }
+
+  if (motorQuantSlider) {
+    motorQuantSlider.value = uncertainty.motorQuantStep;
+    motorQuantLabel.textContent = uncertainty.motorQuantStep.toFixed(0);
+  }
+
+  if (motorNoiseSlider) {
+    motorNoiseSlider.value = uncertainty.motorNoiseSigma;
+    motorNoiseLabel.textContent = uncertainty.motorNoiseSigma.toFixed(0);
+  }
+
+  if (motorLagSlider) {
+    motorLagSlider.value = uncertainty.motorLagSeconds;
+    motorLagLabel.textContent = uncertainty.motorLagSeconds.toFixed(2);
+  }
+}
+
+/* Call once on load */
+syncUncertaintyUIFromModel();
+
+/* Listeners */
+
+if (uncEnabledChk) {
+  uncEnabledChk.addEventListener("change", () => {
+    uncertainty.enabled = uncEnabledChk.checked;
+    appendDebug(`Uncertainty ${uncertainty.enabled ? "enabled" : "disabled"}.`);
+  });
+}
+
+if (sensorNoiseSlider) {
+  sensorNoiseSlider.addEventListener("input", () => {
+    uncertainty.sensorNoiseSigma = parseFloat(sensorNoiseSlider.value) || 0;
+    sensorNoiseLabel.textContent = uncertainty.sensorNoiseSigma.toFixed(0);
+  });
+}
+
+if (sensorBiasSlider) {
+  sensorBiasSlider.addEventListener("input", () => {
+    uncertainty.sensorBiasRange = parseFloat(sensorBiasSlider.value) || 0;
+    sensorBiasLabel.textContent = uncertainty.sensorBiasRange.toFixed(0);
+    // Note: existing sensorBias array remains; new bias won’t regenerate until reload.
+  });
+}
+
+if (lineNoiseSlider) {
+  lineNoiseSlider.addEventListener("input", () => {
+    uncertainty.lineNoise_cm = parseFloat(lineNoiseSlider.value) || 0;
+    lineNoiseLabel.textContent = uncertainty.lineNoise_cm.toFixed(2);
+  });
+}
+
+if (motorQuantSlider) {
+  motorQuantSlider.addEventListener("input", () => {
+    uncertainty.motorQuantStep = parseFloat(motorQuantSlider.value) || 0;
+    motorQuantLabel.textContent = uncertainty.motorQuantStep.toFixed(0);
+  });
+}
+
+if (motorNoiseSlider) {
+  motorNoiseSlider.addEventListener("input", () => {
+    uncertainty.motorNoiseSigma = parseFloat(motorNoiseSlider.value) || 0;
+    motorNoiseLabel.textContent = uncertainty.motorNoiseSigma.toFixed(0);
+  });
+}
+
+if (motorLagSlider) {
+  motorLagSlider.addEventListener("input", () => {
+    uncertainty.motorLagSeconds = parseFloat(motorLagSlider.value) || 0;
+    motorLagLabel.textContent = uncertainty.motorLagSeconds.toFixed(2);
+  });
+}
+
+
+
+document.getElementById("trackSelector").addEventListener("change", e => {
+  const t = predefinedTracks[e.target.value];
+  track = JSON.parse(JSON.stringify(t));
+});
+
+/* ============================================
+   Catmull–Rom to Bézier Converter Helper
+============================================ */
+
+function catmullRomToBezier(p0, p1, p2, p3) {
+  return {
+    c1: {
+      x: p1.x + (p2.x - p0.x) / 6,
+      y: p1.y + (p2.y - p0.y) / 6
+    },
+    c2: {
+      x: p2.x - (p3.x - p1.x) / 6,
+      y: p2.y - (p3.y - p1.y) / 6
+    }
+  };
+}
+
+/* ============================================
+   Track Rendering (Smooth Spline + Gradient)
+============================================ */
+
+function drawTrack() {
+  if (!track.points || track.points.length < 2) return;
+
+  const pts = track.points;
+  const n = pts.length;
+  const closedCheckbox = document.getElementById("closedTrackMode");
+  const closed = closedCheckbox ? closedCheckbox.checked : false;
+
+  let segments = [];
+
+  if (closed && n > 2) {
+    // CLOSED LOOP: use cyclic indexing
+    for (let i = 0; i < n; i++) {
+      const p0 = pts[(i - 1 + n) % n];
+      const p1 = pts[i];
+      const p2 = pts[(i + 1) % n];
+      const p3 = pts[(i + 2) % n];
+
+      const bez = catmullRomToBezier(p0, p1, p2, p3);
+      segments.push({ p1, c1: bez.c1, c2: bez.c2, p2 });
+    }
+  } else {
+    // OPEN CURVE: clamp ends
+    for (let i = 0; i < n - 1; i++) {
+      const p0 = (i === 0) ? pts[i] : pts[i - 1];
+      const p1 = pts[i];
+      const p2 = pts[i + 1];
+      const p3 = (i + 2 < n) ? pts[i + 2] : pts[i + 1];
+
+      const bez = catmullRomToBezier(p0, p1, p2, p3);
+      segments.push({ p1, c1: bez.c1, c2: bez.c2, p2 });
+    }
+  }
+
+  const lineW = track.properties.lineWidth_cm;
+  const gradW = track.properties.lineGradient_cm;
+
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+
+  // --- Gradient halo / soft edge ---
+  ctx.lineWidth = (lineW + gradW) * pixelsPerCm * view.zoom;
+  ctx.strokeStyle = "rgba(255,255,255,0.2)";
+
+  ctx.beginPath();
+  buildBezierPath(segments);
+  ctx.stroke();
+
+  // --- Solid center line ---
+  ctx.lineWidth = lineW * pixelsPerCm * view.zoom;
+  ctx.strokeStyle = "#ffffff";
+
+  ctx.beginPath();
+  buildBezierPath(segments);
+  ctx.stroke();
+}
+
+
+function buildBezierPath(segments) {
+  let first = true;
+
+  for (const seg of segments) {
+    const s1 = worldToScreen(seg.p1.x, seg.p1.y);
+    const c1 = worldToScreen(seg.c1.x, seg.c1.y);
+    const c2 = worldToScreen(seg.c2.x, seg.c2.y);
+    const s2 = worldToScreen(seg.p2.x, seg.p2.y);
+
+    if (first) {
+      ctx.moveTo(s1.x, s1.y);
+      first = false;
+    }
+
+    ctx.bezierCurveTo(c1.x, c1.y, c2.x, c2.y, s2.x, s2.y);
+  }
+}
+
+/* ============================================
+   Editor Handles (Anchors Only)
+============================================ */
+
+function drawTrackEditorHandles() {
+  if (!document.getElementById("editTrackMode").checked) return;
+
+  for (let p of track.points) {
+    const scr = worldToScreen(p.x,p.y);
+
+    ctx.beginPath();
+    ctx.fillStyle = "#ff00aa";
+    ctx.arc(scr.x, scr.y, 6, 0, Math.PI*2);
+    ctx.fill();
+  }
+}
+
+/* ============================================
+   Add / Drag / Delete Points
+============================================ */
+
+let draggingPoint = null;
+
+canvas.addEventListener("mousedown", e => {
+  if (!document.getElementById("editTrackMode").checked) return;
+
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  const m = screenToWorld(mx,my);
+
+  // Shift-click or right-click deletes
+  if (e.button === 2 || (e.button === 0 && e.shiftKey)) {
+    deletePointNear(m);
+    return;
+  }
+
+  // Check for drag
+  for (let p of track.points) {
+    if (Math.hypot(p.x - m.x, p.y - m.y) < 0.6) {
+      draggingPoint = p;
+      return;
+    }
+  }
+
+  // Add new anchor point
+  track.points.push({ x:m.x, y:m.y });
+});
+
+canvas.addEventListener("mousemove", e => {
+  if (!draggingPoint) return;
+
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  const m = screenToWorld(mx,my);
+
+  draggingPoint.x = m.x;
+  draggingPoint.y = m.y;
+});
+
+canvas.addEventListener("mouseup", () => draggingPoint = null);
+
+canvas.addEventListener("contextmenu", e => e.preventDefault());
+
+function deletePointNear(m) {
+  for (let i=0; i<track.points.length; i++) {
+    const p = track.points[i];
+    if (Math.hypot(p.x - m.x, p.y - m.y) < 0.6) {
+      track.points.splice(i,1);
+      return;
+    }
+  }
+}
+
+/* ============================================
+   Save / Load Track
+============================================ */
+
+document.getElementById("saveTrackBtn").addEventListener("click", () => {
+  const blob = new Blob([JSON.stringify(track,null,2)], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "Track.json";
+  a.click();
+});
+
+document.getElementById("loadTrackBtn").addEventListener("click", () =>
+        document.getElementById("loadTrackInput").click()
+);
+
+document.getElementById("loadTrackInput").addEventListener("change", e => {
+  const f = e.target.files[0];
+  if (!f) return;
+
+  const reader = new FileReader();
+  reader.onload = ev => {
+    track = JSON.parse(ev.target.result);
+  };
+  reader.readAsText(f);
+});
+
+/* ============================================
+   Integrate into Render Loop
+============================================ */
+
+const oldRender = render;
+render = function() {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  drawGrid();
+  drawTrack();
+  drawRobot();
+  drawTrackEditorHandles();
+
+  requestAnimationFrame(render);
+};
+requestAnimationFrame(render);
+
+/* ============================================
+   PART 4 — ROBOT CONFIG & PREVIEW
+============================================ */
+
+/* --- Robot configuration model --- */
+let robotConfig = {
+  name: "Default Robot",
+  wheelbase_cm: 10.0,
+  sensorDist_cm: 5.0,
+  sensorInner_cm: 1.0,
+  sensorOuter_cm: 3.0
+};
+
+/* --- Robot state (pose) --- */
+let robotState = {
+  x_cm: 20,
+  y_cm: 20,
+  heading_rad: 0,   // 0 = facing +X in world coords
+  placed: true
+};
+
+/* --- Helpers to sync sliders <-> config --- */
+
+const wheelbaseSlider     = document.getElementById("wheelbaseSlider");
+const sensorDistSlider    = document.getElementById("sensorDistSlider");
+const sensorInnerSlider   = document.getElementById("sensorInnerSlider");
+const sensorOuterSlider   = document.getElementById("sensorOuterSlider");
+
+const wheelbaseValue   = document.getElementById("wheelbaseValue");
+const sensorDistValue  = document.getElementById("sensorDistValue");
+const sensorInnerValue = document.getElementById("sensorInnerValue");
+const sensorOuterValue = document.getElementById("sensorOuterValue");
+
+function updateRobotValueLabels() {
+  if (wheelbaseValue)   wheelbaseValue.textContent   = robotConfig.wheelbase_cm.toFixed(1);
+  if (sensorDistValue)  sensorDistValue.textContent  = robotConfig.sensorDist_cm.toFixed(1);
+  if (sensorInnerValue) sensorInnerValue.textContent = robotConfig.sensorInner_cm.toFixed(1);
+  if (sensorOuterValue) sensorOuterValue.textContent = robotConfig.sensorOuter_cm.toFixed(1);
+}
+
+function syncRobotSlidersFromConfig() {
+  wheelbaseSlider.value   = robotConfig.wheelbase_cm;
+  sensorDistSlider.value  = robotConfig.sensorDist_cm;
+  sensorInnerSlider.value = robotConfig.sensorInner_cm;
+  sensorOuterSlider.value = robotConfig.sensorOuter_cm;
+  updateRobotValueLabels();
+}
+
+function clamp(val, min, max) {
+  return Math.max(min, Math.min(max, val));
+}
+
+/* initial sync */
+syncRobotSlidersFromConfig();
+
+/* when sliders move, update config + preview */
+wheelbaseSlider.addEventListener("input", () => {
+  robotConfig.wheelbase_cm = parseFloat(wheelbaseSlider.value);
+  updateRobotValueLabels();
+});
+
+sensorDistSlider.addEventListener("input", () => {
+  robotConfig.sensorDist_cm = parseFloat(sensorDistSlider.value);
+  updateRobotValueLabels();
+});
+
+sensorInnerSlider.addEventListener("input", () => {
+  robotConfig.sensorInner_cm = parseFloat(sensorInnerSlider.value);
+  updateRobotValueLabels();
+});
+
+sensorOuterSlider.addEventListener("input", () => {
+  robotConfig.sensorOuter_cm = parseFloat(sensorOuterSlider.value);
+  updateRobotValueLabels();
+});
+
+/* --- Draw robot on canvas --- */
+
+function drawRobot() {
+  if (!robotState.placed) return;
+
+  const { x_cm, y_cm, heading_rad } = robotState;
+  const { wheelbase_cm, sensorDist_cm, sensorInner_cm, sensorOuter_cm } = robotConfig;
+
+  const cosH = Math.cos(heading_rad);
+  const sinH = Math.sin(heading_rad);
+
+  // Basic body dimensions (heuristic)
+  const bodyLength = sensorDist_cm + wheelbase_cm * 0.8;
+  const bodyWidth  = wheelbase_cm * 0.8;
+
+  const halfL = bodyLength / 2;
+  const halfW = bodyWidth  / 2;
+
+  function localToWorld(lx, ly) {
+    return {
+      x: x_cm + lx * cosH - ly * sinH,
+      y: y_cm + lx * sinH + ly * cosH
+    };
+  }
+
+  function worldToScreenPoint(wx, wy) {
+    const s = worldToScreen(wx, wy);
+    return { x: s.x, y: s.y };
+  }
+
+  /* --- Body polygon --- */
+  const bodyLocalVerts = [
+    { x: -halfL, y: -halfW },
+    { x:  halfL, y: -halfW },
+    { x:  halfL, y:  halfW },
+    { x: -halfL, y:  halfW }
+  ];
+
+  const bodyScreen = bodyLocalVerts.map(v => {
+    const w = localToWorld(v.x, v.y);
+    return worldToScreenPoint(w.x, w.y);
+  });
+
+  ctx.beginPath();
+  ctx.fillStyle = "#22c55e";
+  ctx.strokeStyle = "#16a34a";
+  ctx.lineWidth = 2;
+  ctx.moveTo(bodyScreen[0].x, bodyScreen[0].y);
+  for (let i = 1; i < bodyScreen.length; i++) {
+    ctx.lineTo(bodyScreen[i].x, bodyScreen[i].y);
+  }
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  /* --- Heading indicator (front) --- */
+  const noseLocal = { x: halfL, y: 0 };
+  const centerWorld = localToWorld(0, 0);
+  const noseWorld = localToWorld(noseLocal.x, noseLocal.y);
+
+  const centerScr = worldToScreenPoint(centerWorld.x, centerWorld.y);
+  const noseScr   = worldToScreenPoint(noseWorld.x, noseWorld.y);
+
+  ctx.beginPath();
+  ctx.strokeStyle = "#f97316";
+  ctx.lineWidth = 3;
+  ctx.moveTo(centerScr.x, centerScr.y);
+  ctx.lineTo(noseScr.x, noseScr.y);
+  ctx.stroke();
+
+  /* --- Wheels --- */
+  const wheelLength = bodyLength * 0.6;
+  const wheelWidth  = wheelbase_cm * 0.15;
+  const halfWL = wheelLength / 2;
+  const halfWW = wheelWidth  / 2;
+  const wheelOffsetY = wheelbase_cm / 2;
+
+  function drawWheel(sideSign, speedPct) {
+    const localVerts = [
+      { x: -halfWL, y: sideSign * wheelOffsetY - halfWW },
+      { x:  halfWL, y: sideSign * wheelOffsetY - halfWW },
+      { x:  halfWL, y: sideSign * wheelOffsetY + halfWW },
+      { x: -halfWL, y: sideSign * wheelOffsetY + halfWW }
+    ];
+    const scrVerts = localVerts.map(v => {
+      const w = localToWorld(v.x, v.y);
+      return worldToScreenPoint(w.x, w.y);
+    });
+
+    // Compute a gradient along the wheel (from back to front)
+    // use vertices [0] -> [1] as "back -> front" direction in screen space
+    const pBack  = scrVerts[0];
+    const pFront = scrVerts[1];
+    const grad = ctx.createLinearGradient(pBack.x, pBack.y, pFront.x, pFront.y);
+
+    const mag = Math.min(1, Math.abs(speedPct) / 100); // 0..1
+    const baseDark = "rgba(15,23,42,1)";               // very dark
+    let bright;
+    if (speedPct > 1) {
+      // forward: green-ish, intensity = |speed|
+      bright = `rgba(34,197,94,${0.2 + 0.6 * mag})`;   // emerald
+    } else if (speedPct < -1) {
+      // reverse: blue-ish
+      bright = `rgba(59,130,246,${0.2 + 0.6 * mag})`;  // blue
+    } else {
+      // near zero: gray
+      bright = "rgba(107,114,128,0.5)";                // neutral
+    }
+
+    grad.addColorStop(0.0, baseDark);
+    grad.addColorStop(0.3, baseDark);
+    grad.addColorStop(1.0, bright);
+
+    ctx.beginPath();
+    ctx.fillStyle = grad;
+    ctx.strokeStyle = "#4b5563";
+    ctx.moveTo(scrVerts[0].x, scrVerts[0].y);
+    for (let i = 1; i < scrVerts.length; i++) {
+      ctx.lineTo(scrVerts[i].x, scrVerts[i].y);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  }
+
+  const leftSpeedVis  = lastMotorSpeeds.left  || 0;
+  const rightSpeedVis = lastMotorSpeeds.right || 0;
+  drawWheel(1,  leftSpeedVis);   // left wheel
+  drawWheel(-1, rightSpeedVis);  // right wheel
+
+  /* --- Sensors --- */
+  // Assume wheel axle at local x = -halfL + wheelbase/2
+  const axleLocalX = -halfL + wheelbase_cm / 2;
+  const sensorX = axleLocalX + sensorDist_cm;
+
+  const lateralOffsets = [
+    -sensorOuter_cm,
+    -sensorInner_cm,
+    0,
+    sensorInner_cm,
+    sensorOuter_cm
+  ];
+
+  for (let i = 0; i < 5; i++) {
+    const lx = sensorX;
+    const ly = lateralOffsets[i];
+
+    const w = localToWorld(lx, ly);
+    const s = worldToScreenPoint(w.x, w.y);
+
+    ctx.beginPath();
+    ctx.fillStyle = "#38bdf8";
+    ctx.arc(s.x, s.y, 4 * view.zoom, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+/* --- Save / Load Robot.json --- */
+
+document.getElementById("saveRobotBtn").addEventListener("click", () => {
+  const robotJson = {
+    name: robotConfig.name || "Custom Robot",
+    wheelbase_cm: robotConfig.wheelbase_cm,
+    sensorDist_cm: robotConfig.sensorDist_cm,
+    sensorInner_cm: robotConfig.sensorInner_cm,
+    sensorOuter_cm: robotConfig.sensorOuter_cm
+  };
+
+  const blob = new Blob([JSON.stringify(robotJson, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "Robot.json";
+  a.click();
+});
+
+document.getElementById("loadRobotBtn").addEventListener("click", () => {
+  document.getElementById("loadRobotInput").click();
+});
+
+document.getElementById("loadRobotInput").addEventListener("change", e => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = evt => {
+    try {
+      const data = JSON.parse(evt.target.result);
+      robotConfig.name          = data.name || "Loaded Robot";
+      robotConfig.wheelbase_cm  = parseFloat(data.wheelbase_cm);
+      robotConfig.sensorDist_cm = parseFloat(data.sensorDist_cm);
+      robotConfig.sensorInner_cm= parseFloat(data.sensorInner_cm);
+      robotConfig.sensorOuter_cm= parseFloat(data.sensorOuter_cm);
+
+      // clamp and sync to sliders
+      robotConfig.wheelbase_cm   = clamp(robotConfig.wheelbase_cm, 5, 20);
+      robotConfig.sensorDist_cm  = clamp(robotConfig.sensorDist_cm, 1, 10);
+      robotConfig.sensorInner_cm = clamp(robotConfig.sensorInner_cm, 0.5, 5);
+      robotConfig.sensorOuter_cm = clamp(robotConfig.sensorOuter_cm, 1, 10);
+
+      syncRobotSlidersFromConfig();
+    } catch (err) {
+      console.error("Failed to parse Robot.json", err);
+    }
+  };
+  reader.readAsText(file);
+});
+
+/* ============================================
+   PART 5 — USER LOGIC ENGINE & DEBUG LOG
+============================================ */
+
+/* --- Simulation config passed to user logic --- */
+const simConfig = {
+  LINE_THRESHOLD: 600,  // threshold for "on line" vs "off"
+  BASE_SPEED: 50,       // default motor speed (0–100)
+  MAX_SPEED: 100        // absolute max
+};
+
+/* --- Debug log --- */
+const debugLogEl = document.getElementById("debugLog");
+
+function appendDebug(message) {
+  if (!debugLogEl) return;
+  const time = new Date().toLocaleTimeString();
+  debugLogEl.value += `[${time}] ${message}\n`;
+  debugLogEl.scrollTop = debugLogEl.scrollHeight;
+}
+
+/* --- Default robot logic (fallback) --- */
+let userRunRobotLogic = function(sensors, config, log) {
+  // sensors = [s0..s4] each 0–1023
+  // Very naive: if center sees line strongly, go straight;
+  // if more on left sensors, turn left; if more on right, turn right.
+  const weights = [-2, -1, 0, 1, 2];
+
+  let sum = 0;
+  let total = 0;
+  for (let i = 0; i < 5; i++) {
+    const v = sensors[i] / 1023; // normalize
+    sum += v * weights[i];
+    total += v;
+  }
+
+  let base = config.BASE_SPEED;
+  let turn = sum * 40; // gain
+
+  let left  = base - turn;
+  let right = base + turn;
+
+  left  = Math.max(0, Math.min(config.MAX_SPEED, left));
+  right = Math.max(0, Math.min(config.MAX_SPEED, right));
+
+  return { leftSpeed: left, rightSpeed: right };
+};
+
+/* --- Compile code from CodeMirror into userRunRobotLogic --- */
+
+function applyRobotCodeFromEditor() {
+  if (!window.codeMirrorEditor) {
+    appendDebug("Code editor not initialized.");
+    return;
+  }
+
+  const code = window.codeMirrorEditor.getValue();
+
+  try {
+    // Wrap user code: we expect them to define runRobotLogic(...)
+    const wrapper = new Function(`
+      "use strict";
+      ${code}
+      if (typeof runRobotLogic !== "function") {
+        throw new Error("You must define function runRobotLogic(sensors, config, log) { ... }");
+      }
+      return runRobotLogic;
+    `);
+
+    const fn = wrapper();
+
+    // Quick sanity check: call once with dummy values
+    const testSensors = [0, 0, 1023, 0, 0];
+    const testResult = fn(testSensors, simConfig, msg => {});
+    if (!testResult || typeof testResult.leftSpeed === "undefined" || typeof testResult.rightSpeed === "undefined") {
+      throw new Error("runRobotLogic must return an object { leftSpeed, rightSpeed }.");
+    }
+
+    userRunRobotLogic = fn;
+    appendDebug("✅ User code applied successfully.");
+
+  } catch (err) {
+    appendDebug("❌ Error in user code: " + err.message);
+    console.error(err);
+  }
+}
+
+/* --- Hook Apply Code button --- */
+document.getElementById("applyCodeBtn").addEventListener("click", () => {
+  applyRobotCodeFromEditor();
+});
+
+/* Optionally: apply current editor contents once at startup */
+setTimeout(() => {
+  appendDebug("Using default JS logic. Click 'Apply Code' to use your own.");
+}, 0);
+
+
+/* ============================================
+   PART 6 — SIMULATION, SENSORS, MOTORS
+============================================ */
+
+/* --- Simulation state --- */
+let simRunning = false;
+let lastPlacedState = { ...robotState };
+// Visual motor state for drawing wheels
+let lastMotorSpeeds = { left: 0, right: 0 }; // in percent, -100..100
+
+/* --- Placement mode ---
+   0 = off
+   1 = waiting for position click
+   2 = waiting for orientation click
+*/
+let placementMode = 0;
+
+/* --- DOM elements for monitors --- */
+const sensorBoxes = Array.from(document.querySelectorAll("#sensorMonitor .sensor-box"));
+const leftMotorEl = document.getElementById("leftMotorOut");
+const rightMotorEl = document.getElementById("rightMotorOut");
+
+/* ============================================
+   SIMULATION SPEED CONTROL
+============================================ */
+
+let simSpeed = 1.0; // 1x by default
+
+const simSpeedSlider = document.getElementById("simSpeedSlider");
+const simSpeedLabel  = document.getElementById("simSpeedLabel");
+const simSpeedButtons = document.querySelectorAll(".sim-speed-btn");
+
+function updateSimSpeedLabel() {
+  if (simSpeedLabel) {
+    simSpeedLabel.textContent = simSpeed.toFixed(2) + "x";
+  }
+}
+
+/* Slider changes speed */
+if (simSpeedSlider) {
+  simSpeedSlider.value = String(simSpeed);
+  simSpeedSlider.addEventListener("input", () => {
+    simSpeed = parseFloat(simSpeedSlider.value) || 1.0;
+    updateSimSpeedLabel();
+    highlightNearestSpeedButton();
+  });
+}
+
+/* Buttons: quick presets */
+function clearSpeedButtonHighlights() {
+  simSpeedButtons.forEach(btn => {
+    btn.classList.remove("bg-blue-600", "hover:bg-blue-500");
+    btn.classList.add("bg-gray-700", "hover:bg-gray-600");
+  });
+}
+
+function highlightNearestSpeedButton() {
+  let bestBtn = null;
+  let bestDiff = Infinity;
+  simSpeedButtons.forEach(btn => {
+    const v = parseFloat(btn.dataset.speed);
+    const diff = Math.abs(v - simSpeed);
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      bestBtn = btn;
+    }
+  });
+  if (bestBtn) {
+    clearSpeedButtonHighlights();
+    bestBtn.classList.remove("bg-gray-700", "hover:bg-gray-600");
+    bestBtn.classList.add("bg-blue-600", "hover:bg-blue-500");
+  }
+}
+
+simSpeedButtons.forEach(btn => {
+  btn.addEventListener("click", () => {
+    const v = parseFloat(btn.dataset.speed) || 1.0;
+    simSpeed = v;
+    if (simSpeedSlider) simSpeedSlider.value = String(simSpeed);
+    updateSimSpeedLabel();
+    highlightNearestSpeedButton();
+  });
+});
+
+/* initialize */
+updateSimSpeedLabel();
+highlightNearestSpeedButton();
+
+/* --- Sensor positions (world coords, in cm) --- */
+function getSensorWorldPositions() {
+  if (!robotState.placed) return [];
+
+  const { x_cm, y_cm, heading_rad } = robotState;
+  const { wheelbase_cm, sensorDist_cm, sensorInner_cm, sensorOuter_cm } = robotConfig;
+
+  const cosH = Math.cos(heading_rad);
+  const sinH = Math.sin(heading_rad);
+
+  const bodyLength = sensorDist_cm + wheelbase_cm * 0.8;
+  const halfL = bodyLength / 2;
+  const axleLocalX = -halfL + wheelbase_cm / 2;
+  const sensorX = axleLocalX + sensorDist_cm;
+
+  const lateralOffsets = [
+    -sensorOuter_cm,
+    -sensorInner_cm,
+    0,
+    sensorInner_cm,
+    sensorOuter_cm
+  ];
+
+  function localToWorld(lx, ly) {
+    return {
+      x: x_cm + lx * cosH - ly * sinH,
+      y: y_cm + lx * sinH + ly * cosH
+    };
+  }
+
+  return lateralOffsets.map(ly => localToWorld(sensorX, ly));
+}
+
+/* --- Approximate distance to track (sampled spline) --- */
+
+function cubicBezierPoint(p0, p1, p2, p3, t) {
+  const mt = 1 - t;
+  const mt2 = mt * mt;
+  const t2 = t * t;
+  const x = mt2 * mt * p0.x +
+          3 * mt2 * t * p1.x +
+          3 * mt * t2 * p2.x +
+          t2 * t * p3.x;
+  const y = mt2 * mt * p0.y +
+          3 * mt2 * t * p1.y +
+          3 * mt * t2 * p2.y +
+          t2 * t * p3.y;
+  return { x, y };
+}
+
+function getTrackSamplePoints() {
+  const pts = track.points;
+  if (!pts || pts.length < 2) return [];
+
+  const closedCheckbox = document.getElementById("closedTrackMode");
+  const closed = closedCheckbox ? closedCheckbox.checked : false;
+  const n = pts.length;
+  const segments = [];
+
+  if (closed && n > 2) {
+    // closed Catmull–Rom
+    for (let i = 0; i < n; i++) {
+      const p0 = pts[(i - 1 + n) % n];
+      const p1 = pts[i];
+      const p2 = pts[(i + 1) % n];
+      const p3 = pts[(i + 2) % n];
+      const bez = catmullRomToBezier(p0, p1, p2, p3);
+      segments.push({ p0: p1, p1: bez.c1, p2: bez.c2, p3: p2 });
+    }
+  } else {
+    // open Catmull–Rom
+    for (let i = 0; i < n - 1; i++) {
+      const p0 = (i === 0) ? pts[i] : pts[i - 1];
+      const p1 = pts[i];
+      const p2 = pts[i + 1];
+      const p3 = (i + 2 < n) ? pts[i + 2] : pts[i + 1];
+      const bez = catmullRomToBezier(p0, p1, p2, p3);
+      segments.push({ p0: p1, p1: bez.c1, p2: bez.c2, p3: p2 });
+    }
+  }
+
+  const samples = [];
+
+  for (const seg of segments) {
+    // approximate segment length by chord p0->p3
+    const chordLen = Math.hypot(seg.p3.x - seg.p0.x, seg.p3.y - seg.p0.y); // in cm
+    const STEPS = Math.max(10, Math.ceil(chordLen)); // ~1 cm per sample, at least 10
+
+    for (let s = 0; s <= STEPS; s++) {
+      const t = s / STEPS;
+      const p = cubicBezierPoint(seg.p0, seg.p1, seg.p2, seg.p3, t);
+      samples.push(p);
+    }
+  }
+
+  return samples;
+}
+
+/* Distance from point (cx,cy) to polyline sample points (in cm) */
+function distanceToTrack(cx, cy, trackSamples) {
+  if (!trackSamples.length) return Infinity;
+  let minD2 = Infinity;
+  for (const p of trackSamples) {
+    const dx = p.x - cx;
+    const dy = p.y - cy;
+    const d2 = dx*dx + dy*dy;
+    if (d2 < minD2) minD2 = d2;
+  }
+  return Math.sqrt(minD2);
+}
+
+/* --- Compute sensor values (0–1023) based on distance to track --- */
+function computeSensorValues() {
+  const sensors = [0, 0, 0, 0, 0];
+  if (!robotState.placed || track.points.length < 2) return sensors;
+
+  const sensorPositions = getSensorWorldPositions();
+  const trackSamples = getTrackSamplePoints();
+
+  const lineW = track.properties.lineWidth_cm || 2;
+  const gradW = track.properties.lineGradient_cm || 1;
+
+  // Slightly generous radius to account for soft edges
+  const effectiveRadius = (lineW * 0.5) + (gradW * 2.0); // cm
+
+  for (let i = 0; i < 5; i++) {
+    const sp = sensorPositions[i];
+    const d = distanceToTrack(sp.x, sp.y, trackSamples); // cm
+
+    // --- Line imperfection: add jitter to distance ---
+    let noisyD = d;
+    if (uncertainty.enabled && uncertainty.lineNoise_cm > 0) {
+      noisyD += (Math.random() * 2 - 1) * uncertainty.lineNoise_cm;
+      if (noisyD < 0) noisyD = 0;
+    }
+
+    // Ideal continuous response (Gaussian-ish falloff)
+    let v = 0;
+    if (noisyD < effectiveRadius) {
+      const norm = noisyD / effectiveRadius;   // 0 at center, 1 at edge
+      v = Math.exp(-3 * norm * norm);         // smooth drop-off
+    }
+
+    // Convert to ADC units
+    let adc = v * 1023;
+
+    // --- Sensor bias + random noise ---
+    if (uncertainty.enabled) {
+      // bias scaled by current slider
+      if (uncertainty.sensorBiasRange > 0) {
+        adc += sensorBiasNorm[i] * uncertainty.sensorBiasRange;
+      }
+
+      if (uncertainty.sensorNoiseSigma > 0) {
+        adc += randNormal() * uncertainty.sensorNoiseSigma;
+      }
+    }
+
+    // Clamp to 0..1023
+    adc = Math.max(0, Math.min(1023, adc));
+    sensors[i] = Math.round(adc);
+  }
+
+  return sensors;
+}
+
+/* --- UI updates --- */
+
+function updateSensorMonitor(values) {
+  for (let i = 0; i < 5; i++) {
+    const box = sensorBoxes[i];
+    if (!box) continue;
+    const val = values[i] ?? 0;
+
+    box.innerHTML = `S${i}<br>${val}`;
+    if (val > simConfig.LINE_THRESHOLD) {
+      box.style.backgroundColor = "#1d4ed8"; // blue-ish when on line
+    } else {
+      box.style.backgroundColor = "#374151"; // gray-ish
+    }
+  }
+}
+
+function updateMotorMonitor(left, right) {
+  if (leftMotorEl) leftMotorEl.textContent  = `${left.toFixed(0)}%`;
+  if (rightMotorEl) rightMotorEl.textContent = `${right.toFixed(0)}%`;
+}
+
+/* --- Differential drive physics step --- */
+
+function stepSimulation(dt) {
+  if (!robotState.placed) return;
+
+  // 1) Read sensors
+  const sensorValues = computeSensorValues();
+  updateSensorMonitor(sensorValues);
+
+  // 2) Call user logic
+  let cmd;
+  try {
+    const logFn = msg => appendDebug(String(msg));
+    cmd = userRunRobotLogic(sensorValues, simConfig, logFn) || { leftSpeed:0, rightSpeed:0 };
+  } catch (err) {
+    appendDebug("❌ Runtime error in user code: " + err.message);
+    console.error(err);
+    cmd = { leftSpeed:0, rightSpeed:0 };
+  }
+
+  let leftCmd  = Number(cmd.leftSpeed)  || 0;
+  let rightCmd = Number(cmd.rightSpeed) || 0;
+  const maxAbs = simConfig.MAX_SPEED;
+
+  // Clamp to allowed command range
+  leftCmd  = Math.max(-maxAbs, Math.min(maxAbs, leftCmd));
+  rightCmd = Math.max(-maxAbs, Math.min(maxAbs, rightCmd));
+
+  // --- Motor uncertainty model ---
+  let leftActual  = leftCmd;
+  let rightActual = rightCmd;
+
+  if (uncertainty.enabled) {
+    // 1) Quantization (command resolution)
+    leftCmd  = quantizePercent(leftCmd,  uncertainty.motorQuantStep);
+    rightCmd = quantizePercent(rightCmd, uncertainty.motorQuantStep);
+
+    // 2) First-order lag: actual speeds chase commanded speeds
+    const tau = uncertainty.motorLagSeconds;
+    const alpha = tau > 0 ? (dt / (tau + dt)) : 1.0; // 0..1
+    actualMotorSpeeds.left  += (leftCmd  - actualMotorSpeeds.left)  * alpha;
+    actualMotorSpeeds.right += (rightCmd - actualMotorSpeeds.right) * alpha;
+
+    // 3) Add random noise on top of lagged value
+    leftActual  = actualMotorSpeeds.left  + randNormal() * uncertainty.motorNoiseSigma;
+    rightActual = actualMotorSpeeds.right + randNormal() * uncertainty.motorNoiseSigma;
+  } else {
+    // ideal motors
+    leftActual  = leftCmd;
+    rightActual = rightCmd;
+    actualMotorSpeeds.left  = leftCmd;
+    actualMotorSpeeds.right = rightCmd;
+  }
+
+  // Clamp final actual speeds
+  leftActual  = Math.max(-maxAbs, Math.min(maxAbs, leftActual));
+  rightActual = Math.max(-maxAbs, Math.min(maxAbs, rightActual));
+
+  // Use *actual* speeds for monitoring & drawing
+  updateMotorMonitor(leftActual, rightActual);
+  lastMotorSpeeds.left  = leftActual;
+  lastMotorSpeeds.right = rightActual;
+
+  // 3) Convert to linear wheel speeds (cm/s), preserving sign
+  const MAX_LIN_SPEED = 30; // cm/s at 100% magnitude
+  const vL = MAX_LIN_SPEED * (leftActual  / maxAbs);
+  const vR = MAX_LIN_SPEED * (rightActual / maxAbs);
+
+  const wb = robotConfig.wheelbase_cm || 10;
+
+  const v = (vR + vL) / 2;      // forward speed (cm/s)
+  const omega = (vR - vL) / wb; // angular speed (rad/s)
+
+  // 4) Integrate robot pose at axle midpoint
+  robotState.x_cm += v * Math.cos(robotState.heading_rad) * dt;
+  robotState.y_cm += v * Math.sin(robotState.heading_rad) * dt;
+  robotState.heading_rad += omega * dt;
+}
+
+/* --- Hook up buttons --- */
+
+document.getElementById("placeRobotBtn").addEventListener("click", () => {
+  simRunning = false;
+  placementMode = 1;
+  appendDebug("Placement mode: click on canvas to set position, then click again to set orientation.");
+});
+
+document.getElementById("runBtn").addEventListener("click", () => {
+  simRunning = true;
+  appendDebug("Simulation started.");
+});
+
+document.getElementById("pauseBtn").addEventListener("click", () => {
+  simRunning = false;
+  appendDebug("Simulation paused.");
+});
+
+document.getElementById("resetBtn").addEventListener("click", () => {
+  simRunning = false;
+  robotState = { ...lastPlacedState };
+  appendDebug("Robot reset to last placed position.");
+});
+
+/* --- Placement handler (captures before other canvas handlers) --- */
+
+canvas.addEventListener("mousedown", function placementHandler(e) {
+  if (!placementMode) return;
+
+  e.preventDefault();
+  e.stopImmediatePropagation(); // don't trigger pan / edit / etc.
+
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  const w = screenToWorld(mx, my);
+
+  if (placementMode === 1) {
+    // set position
+    robotState.x_cm = w.x;
+    robotState.y_cm = w.y;
+    robotState.heading_rad = 0;
+    robotState.placed = true;
+    lastPlacedState = { ...robotState };
+    placementMode = 2;
+    appendDebug("Position set. Click again to define orientation.");
+  } else if (placementMode === 2) {
+    // set orientation
+    const dx = w.x - robotState.x_cm;
+    const dy = w.y - robotState.y_cm;
+    if (dx !== 0 || dy !== 0) {
+      robotState.heading_rad = Math.atan2(dy, dx);
+    }
+    lastPlacedState = { ...robotState };
+    placementMode = 0;
+    appendDebug("Orientation set.");
+  }
+}, true); // capture phase
+
+
+/* ============================================
+   PANEL TOGGLES & RIGHT PANEL RESIZE
+============================================ */
+
+const leftPanel      = document.getElementById("leftPanel");
+const rightPanel     = document.getElementById("rightPanel");
+const toggleLeftBtn  = document.getElementById("toggleLeftPanel");
+const toggleRightBtn = document.getElementById("toggleRightPanel");
+const rightResizeHandle = document.getElementById("rightResizeHandle");
+const leftResizeHandle  = document.getElementById("leftResizeHandle");
+let resizingLeft  = false;
+
+let leftPanelHidden = false;
+let rightPanelHidden = false;
+
+/* --- Toggle left panel --- */
+toggleLeftBtn.addEventListener("click", () => {
+  leftPanelHidden = !leftPanelHidden;
+  if (leftPanelHidden) {
+    leftPanel.classList.add("hidden");
+    toggleLeftBtn.textContent = "›";
+  } else {
+    leftPanel.classList.remove("hidden");
+    toggleLeftBtn.textContent = "‹";
+  }
+  resizeCanvas();
+});
+
+/* --- Toggle right panel --- */
+toggleRightBtn.addEventListener("click", () => {
+  rightPanelHidden = !rightPanelHidden;
+  if (rightPanelHidden) {
+    rightPanel.classList.add("hidden");
+    toggleRightBtn.textContent = "‹";
+  } else {
+    rightPanel.classList.remove("hidden");
+    toggleRightBtn.textContent = "›";
+  }
+  resizeCanvas();
+});
+
+/* --- Resize right panel by dragging its left edge --- */
+let resizingRight = false;
+
+rightResizeHandle.addEventListener("mousedown", e => {
+  resizingRight = true;
+  e.preventDefault();
+});
+
+window.addEventListener("mouseup", () => {
+  resizingRight = false;
+});
+
+window.addEventListener("mousemove", e => {
+  if (!resizingRight || rightPanelHidden) return;
+
+  // Right panel width = distance from mouse to window right edge
+  const newWidth = window.innerWidth - e.clientX;
+  const minWidth = 200;
+  const maxWidth = 500;
+  const width = Math.max(minWidth, Math.min(maxWidth, newWidth));
+
+  rightPanel.style.width = width + "px";
+  resizeCanvas();
+});
+
+leftResizeHandle.addEventListener("mousedown", e => {
+  if (leftPanelHidden) return;
+  resizingLeft = true;
+  e.preventDefault();
+});
+
+window.addEventListener("mouseup", () => {
+  resizingLeft = false;
+  resizingRight = false; // keep existing behavior for right
+});
+
+window.addEventListener("mousemove", e => {
+  // Right panel (keep existing logic)
+  if (resizingRight && !rightPanelHidden) {
+    const newWidth = window.innerWidth - e.clientX;
+    const minWidth = 200;
+    const maxWidth = 500;
+    const width = Math.max(minWidth, Math.min(maxWidth, newWidth));
+    rightPanel.style.width = width + "px";
+    resizeCanvas();
+  }
+
+  // Left panel (new logic)
+  if (resizingLeft && !leftPanelHidden) {
+    const rect = leftPanel.getBoundingClientRect();
+    // new width = mouse x - panel's left edge
+    const newWidth = e.clientX - rect.left;
+    const minWidth = 200;
+    const maxWidth = 800;
+    const width = Math.max(minWidth, Math.min(maxWidth, newWidth));
+    leftPanel.style.width = width + "px";
+    resizeCanvas();
+  }
+});
+
+/* ============================================
+   SCALE BAR (BOTTOM-RIGHT)
+============================================ */
+
+const scaleBarEl    = document.getElementById("scaleBar");
+const scaleBarLine  = document.getElementById("scaleBarLine");
+const scaleBarTicks = document.getElementById("scaleBarTicks");
+const scaleBarLabel = document.getElementById("scaleBarLabel");
+
+function updateScaleBar() {
+  if (!scaleBarEl) return;
+
+  const cmOptions = [1, 2, 5, 10, 20, 50, 100];
+  const minPx = 50;
+  const maxPx = 200;
+
+  let chosenCm = cmOptions[cmOptions.length - 1];
+
+  for (const cm of cmOptions) {
+    const px = cm * pixelsPerCm * view.zoom;
+    if (px >= minPx && px <= maxPx) {
+      chosenCm = cm;
+      break;
+    }
+  }
+
+  const pxLen = chosenCm * pixelsPerCm * view.zoom;
+
+  if (scaleBarLine) {
+    scaleBarLine.style.width = pxLen + "px";
+  }
+  if (scaleBarTicks) {
+    scaleBarTicks.style.width = pxLen + "px";
+  }
+  if (scaleBarLabel) {
+    scaleBarLabel.textContent = `${chosenCm} cm`;
+  }
+}
+
+/* --- Wrap existing render to include simulation step --- */
+
+const baseRender = render;  // keep previous drawing behavior
+render = function() {
+  if (simRunning) {
+    const baseDt = 1 / 60;
+    const dt = baseDt * simSpeed;  // 🔥 apply speed multiplier
+    stepSimulation(dt);
+  }
+
+  baseRender();
+  updateScaleBar && updateScaleBar();
+};
+</script>
+
+</body>
+</html>
